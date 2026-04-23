@@ -1,3 +1,11 @@
+// 全局彻底禁止右键菜单，无论是否选中节点
+// 必须放在所有代码最顶部
+// 防止任何场景下弹出浏览器菜单
+
+document.addEventListener('contextmenu', function(e) {
+  e.preventDefault();
+}, true);
+
 const sampleDot = `digraph {
   rankdir=BT size="8,8"
   node [shape=box]
@@ -59,19 +67,24 @@ const sampleDot = `digraph {
   b0 -> -4 [color=grey]
 }`;
 
-const fileInput = document.getElementById("fileInput");
-const renderBtn = document.getElementById("renderBtn");
-const statusEl = document.getElementById("status");
-const layoutSelect = document.getElementById("layoutSelect");
-const applyLayoutBtn = document.getElementById("applyLayoutBtn");
-const expandAllCollapsedBtn = document.getElementById("expandAllCollapsedBtn");
-const toggleNodeTextBtn = document.getElementById("toggleNodeTextBtn");
-const nodeTextModeInfo = document.getElementById("nodeTextModeInfo");
-const restorePanel = document.getElementById("restorePanel");
-const restoreParentInfo = document.getElementById("restoreParentInfo");
-const restoreChildSelect = document.getElementById("restoreChildSelect");
-const restoreConfirmBtn = document.getElementById("restoreConfirmBtn");
-const restoreCancelBtn = document.getElementById("restoreCancelBtn");
+document.addEventListener('DOMContentLoaded', function() {
+  // 下面所有获取 DOM 和事件绑定全放这里
+  const fileInput = document.getElementById("fileInput");
+  const renderBtn = document.getElementById("renderBtn");
+  const statusEl = document.getElementById("status");
+  const layoutSelect = document.getElementById("layoutSelect");
+  const applyLayoutBtn = document.getElementById("applyLayoutBtn");
+  const expandAllCollapsedBtn = document.getElementById("expandAllCollapsedBtn");
+  const toggleNodeTextBtn = document.getElementById("toggleNodeTextBtn");
+  const nodeTextModeInfo = document.getElementById("nodeTextModeInfo");
+  const restorePanel = document.getElementById("restorePanel");
+  const restoreParentInfo = document.getElementById("restoreParentInfo");
+  const restoreChildSelect = document.getElementById("restoreChildSelect");
+  const restoreConfirmBtn = document.getElementById("restoreConfirmBtn");
+  const restoreCancelBtn = document.getElementById("restoreCancelBtn");
+
+  // 其余原有代码全部保留缩进到这里
+
 
 const HIGHLIGHT_RED = "#e60023";
 const INCOMING_GREEN = "#2f9e44";
@@ -1165,29 +1178,31 @@ function bindNetworkEvents() {
     updateTransientHighlight(selection.nodes);
   };
 
-  network.on("click", ({ nodes: clickedNodes, event }) => {
-    // 让双击优先，不和单击高亮冲突
-    if (clickTimer) clearTimeout(clickTimer);
-    clickTimer = setTimeout(() => {
-      if (dblClickFired) {
-        dblClickFired = false;
-        return;
-      }
+  function handleNodeSingleClick(clickedNodes, event) {
+    const altKey = !!event?.srcEvent?.altKey;
+    if (altKey && clickedNodes.length) {
+      promptRestoreCollapsedChild(clickedNodes[0]);
+      return;
+    }
+    if (clickedNodes.length) {
+      network.setSelection({ nodes: [clickedNodes[0]], edges: [] }, { unselectAll: true });
+    } else {
+      network.unselectAll();
+    }
+    syncHighlightFromSelection();
+}
 
-      const altKey = !!event?.srcEvent?.altKey;
-      if (altKey && clickedNodes.length) {
-        promptRestoreCollapsedChild(clickedNodes[0]);
-        return;
-      }
+network.on("click", ({ nodes: clickedNodes, event }) => {
+  if (clickTimer) clearTimeout(clickTimer);
+  clickTimer = setTimeout(() => {
+    if (dblClickFired) {
+      dblClickFired = false;
+      return;
+    }
+    handleNodeSingleClick(clickedNodes, event);
+  }, 220);
+});
 
-      if (clickedNodes.length) {
-        network.setSelection({ nodes: [clickedNodes[0]], edges: [] }, { unselectAll: true });
-      } else {
-        network.unselectAll();
-      }
-      syncHighlightFromSelection();
-    }, 220);
-  });
 
   network.on("doubleClick", ({ nodes: clickedNodes }) => {
     dblClickFired = true;
@@ -1202,6 +1217,124 @@ function bindNetworkEvents() {
   network.on("select", syncHighlightFromSelection);
   network.on("deselectNode", syncHighlightFromSelection);
   network.on("deselectEdge", syncHighlightFromSelection);
+
+  // 右键弹出自定义菜单
+network.on("oncontext", function(params) {
+    const menu = document.getElementById("customContextMenu");
+    if (!menu) return;
+    // 通过当前pointer位置判断命中节点，无视选中状态
+    let nodeId = null;
+    if (params && params.pointer && params.pointer.DOM && network) {
+      nodeId = network.getNodeAt(params.pointer.DOM);
+    }
+    window.lastContextMenuNodeId = nodeId;
+    if (nodeId) {
+            // --- 以节点中心为菜单锚点 ---
+      let x, y;
+      if (network && nodeId) {
+        // 获取节点中心 network 空间坐标
+        const pos = network.getPositions([nodeId])[nodeId];
+        if (pos) {
+          // 转换为 DOM 坐标
+          const domPt = network.canvasToDOM(pos);
+          x = domPt.x;
+          y = domPt.y;
+        }
+      }
+      // 防御兜底，无network等情况回退
+      if (typeof x !== 'number' || typeof y !== 'number') {
+        if (params.event && typeof params.event.clientX === "number" && typeof params.event.clientY === "number") {
+          x = params.event.clientX;
+          y = params.event.clientY;
+        } else {
+          const rect = document.getElementById("network").getBoundingClientRect();
+          x = rect.left + params.pointer.DOM.x;
+          y = rect.top + params.pointer.DOM.y;
+        }
+      }
+      menu.style.left = (x + 510) + "px"; // 左移10单位，细致调整
+      // 先让菜单隐藏以准确测量高度
+    menu.style.display = "block";
+    // 选中菜单项高亮滚动入视区
+    setTimeout(function() {
+      const currentSel = menu.querySelector('li.selected');
+      if (currentSel) currentSel.scrollIntoView({ block: 'center', behavior: 'auto' });
+    }, 0);
+      showCustomContextMenu(nodeId, menu);
+      // 让菜单渲染后再获取高度进行微调
+      setTimeout(function() {
+        // 取上一个上移量和本次下移量的平均值，菜单处于鼠标点略偏上的自然区间
+        const ul = menu.querySelector('ul');
+        let offsetY = 0;
+        if (ul) {
+          const firstRow = ul.querySelector('li');
+          if (firstRow) {
+            const headH = menu.querySelector('div')?.offsetHeight || 28;
+            const rowH = firstRow.offsetHeight || 22;
+            offsetY = Math.floor(headH + rowH*0.2);
+          }
+        }
+        const fallbackOffsetY = 28;
+        const up = y - (offsetY || fallbackOffsetY);
+        const down = y + 8;
+        menu.style.top = Math.round((up + down)/2) + "px";
+      }, 0);
+    } else {
+      menu.style.display = "none";
+    }
+  });
+
+// 菜单项右键切换隐藏/显示
+  document.getElementById("customContextMenu").addEventListener('contextmenu', function(e) {
+    const item = e.target.closest('li[data-node-id]');
+    if (!item) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const nodeId = item.getAttribute('data-node-id');
+    if (!nodeId) return;
+    // 切换隐藏/显示
+    const node = nodes.get(nodeId);
+    if (!node) return;
+    if (node.hidden) {
+      // 变为显示，只显示不自动选中/高亮
+      nodes.update({ id: nodeId, hidden: false });
+    } else {
+      // 变为隐藏
+      nodes.update({ id: nodeId, hidden: true });
+    }
+    // 刷新菜单内容
+    const menu = document.getElementById("customContextMenu");
+    if (menu && window.lastContextMenuNodeId)
+      showCustomContextMenu(window.lastContextMenuNodeId, menu);
+  }, true);
+// 菜单项点击交互（父/子元）
+document.getElementById("customContextMenu").addEventListener('click', function(e) {
+  const item = e.target.closest('li[data-node-id]');
+  if (!item || item.classList.contains('hidden')) return;
+  const nodeId = item.getAttribute('data-node-id');
+  const type = item.classList.contains('parent-item') ? 'parent' : 'child';
+  console.log(`[菜单] 点击${type === 'parent' ? '母元' : '子元'}节点`, nodeId);
+  
+  // 选中此节点（即高亮/聚焦）
+  if (typeof network === 'object' && network && typeof handleNodeSingleClick === 'function') {
+    handleNodeSingleClick([nodeId], { srcEvent: e }); // 直接触发主图点击全套逻辑
+    // 刷新菜单高亮（联动同步当前选中）
+    // 菜单不自动关闭，让用户可观察高亮变化
+    const menu = document.getElementById("customContextMenu");
+    if (menu && window.lastContextMenuNodeId)
+      showCustomContextMenu(window.lastContextMenuNodeId, menu);
+    return;
+  }
+  // 扩展点：可继续高亮、属性面板、跳转等
+  // 关闭菜单（已不再自动关闭）
+});
+// 点击空白区域自动隐藏菜单
+document.addEventListener('mousedown', function(e) {
+  const menu = document.getElementById("customContextMenu");
+  if (menu && menu.style.display !== "none" && !menu.contains(e.target)) {
+    menu.style.display = 'none';
+  }
+});
 }
 
 function createOrResetNetwork(layoutMode) {
@@ -1287,7 +1420,12 @@ fileInput.addEventListener("change", async (event) => {
   try {
     currentDotText = await file.text();
     setStatus(`已加载文件：${file.name}`);
-    renderGraph();
+renderGraph();
+
+document.addEventListener('contextmenu', function(e) {
+  e.preventDefault();
+}, true);
+
   } catch (err) {
     setStatus(`读取文件失败：${err.message}`, true);
   }
@@ -1301,7 +1439,55 @@ restoreCancelBtn?.addEventListener("click", hideRestorePanel);
 toggleNodeTextBtn.addEventListener("click", () => {
   nodeTextMode = nodeTextMode === "label" ? "id" : "label";
   applyNodeTextMode();
+  // 若菜单开着，强制刷新菜单内容
+  const menu = document.getElementById("customContextMenu");
+  if (menu && menu.style.display !== "none") {
+    // 触发最近一次 oncontext 事件逻辑：重复渲染最新菜单（自动取上一次命中的 nodeId）
+    // 实现思路：可记录上一次弹菜单的 nodeId，全局变量 lastContextMenuNodeId
+    if (window.lastContextMenuNodeId) {
+      showCustomContextMenu(window.lastContextMenuNodeId, menu);
+    }
+  }
 });
+
+// 封装右键弹菜单（便于主动刷新）
+function showCustomContextMenu(nodeId, menu) {
+  if (!menu) return;
+  if (nodeId) {
+    // 获取母元（父节点）和子元（子节点），内容部分与 oncontext 中完全一致
+    // 获取所有父节点，不管是否隐藏
+    const parentIds = edges.get({ filter: (e) => e.to === nodeId }).map(e => e.from);
+    // 获取所有子节点，不管是否隐藏
+    const childIds = edges.get({ filter: (e) => e.from === nodeId }).map(e => e.to);
+    const showLabel = nodeTextMode !== "id";
+    const parentList = parentIds.length ? parentIds.map(pid => {
+      const node = nodes.get(pid);
+      const isHidden = node && node.hidden;
+      const label = node ? (showLabel ? (node.dotLabel ?? node.label ?? pid) : pid) : pid;
+      const isSelected = network && network.getSelection && network.getSelection().nodes.includes(pid);
+      return `<li data-node-id='${pid}' class='parent-item${isHidden ? ' hidden' : ''}${isSelected ? ' selected' : ''}' title='${isHidden ? '已隐藏' : ''}'>${label}${isHidden ? '（已隐藏）' : ''}</li>`;
+    }).join('') : '<li style="color:#aaa">（无）</li>';
+    const childList = childIds.length ? childIds.map(cid => {
+      const node = nodes.get(cid);
+      const isHidden = node && node.hidden;
+      const label = node ? (showLabel ? (node.dotLabel ?? node.label ?? cid) : cid) : cid;
+      const isSelected = network && network.getSelection && network.getSelection().nodes.includes(cid);
+      return `<li data-node-id='${cid}' class='child-item${isHidden ? ' hidden' : ''}${isSelected ? ' selected' : ''}' title='${isHidden ? '已隐藏' : ''}'>${label}${isHidden ? '（已隐藏）' : ''}</li>`;
+    }).join('') : '<li style="color:#aaa">（无）</li>';
+    menu.innerHTML =
+      `<div style='padding:8px 0 0 0;'>
+         <div style="padding:0 16px 4px 16px;font-weight:bold;font-size:13px;">母元</div>
+         <ul style="margin:0 0 8px 0;padding:0 16px;list-style:none;">${parentList}</ul>
+         <div style="padding:0 16px 4px 16px;font-weight:bold;font-size:13px;">子元</div>
+         <ul style="margin:0;padding:0 16px 8px 16px;list-style:none;">${childList}</ul>
+       </div>`;
+    menu.style.display = "block";
+  } else {
+    menu.style.display = "none";
+  }
+}
 
 updateNodeTextModeInfo();
 renderGraph();
+}); // <-- 结束 DOMContentLoaded 回调
+

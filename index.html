@@ -118,7 +118,33 @@
           height: 68vh;
         }
       }
-    </style>
+          /* Custom context menu item styles */
+      #customContextMenu ul li {
+        padding: 4px 8px;
+        cursor: pointer;
+        color: #232;
+        border-radius: 3px;
+        transition: background 0.14s;
+        user-select: none;
+      }
+      #customContextMenu ul li.selected {
+        background: #bee6fc !important;
+        color: #165699 !important;
+        font-weight: bold;
+      }
+      #customContextMenu ul li:hover {
+        background: #e2eaff;
+      }
+      #customContextMenu ul li.hidden {
+        color: #b3b3b3;
+        background: #f6f6f8;
+        text-decoration: line-through;
+        cursor: not-allowed;
+      }
+      #customContextMenu ul li:active:not(.hidden) {
+        background: #cbd4eb;
+      }
+</style>
   </head>
   <body>
     <main class="app">
@@ -178,5 +204,17 @@
 
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="./app.js"></script>
+    <div id="customContextMenu" style="display:none; position:absolute; z-index:9999; 
+  min-width:190px;
+  background: #fff;
+  border: 1.5px solid #d4cfc4;
+  border-radius: 7px;
+  box-shadow: 0 3px 18px rgba(80,80,120,0.09),0 1.8px 0 #ece4d0;
+  opacity: 1;
+  padding:0;
+  pointer-events:auto;
+  user-select:none;
+  font-size:15px;
+"></div>
   </body>
 </html>
