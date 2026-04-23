@@ -1,0 +1,473 @@
+digraph "Figures/G" {
+	rankdir=BT
+	-1 [label="." color=white fillcolor=white rank=max style=filled]
+	0 [label="1.1\n0 (1290)" color=grey fillcolor=white shape=ellipse style=filled]
+	1 [label="1.2\n1 (5565)" color=grey fillcolor=white shape=ellipse style=filled]
+	2 [label="1.3\n2 (1409)" color=grey fillcolor=white shape=ellipse style=filled]
+	3 [label="1.4\n3 (1443)" color=grey fillcolor=white shape=ellipse style=filled]
+	4 [label="1.5\n4 (1677)" color=grey fillcolor=white shape=ellipse style=filled]
+	5 [label="1.6\n5 (1064)" color=grey fillcolor=white shape=ellipse style=filled]
+	6 [label="1.7\n6 (1707)" color=grey fillcolor=white shape=ellipse style=filled]
+	7 [label="1.8\n7 (1009)" color=grey fillcolor=white shape=ellipse style=filled]
+	8 [label="1.9\n8 (3976)" color=grey fillcolor=white shape=ellipse style=filled]
+	9 [label="1.10\n9 (1557)" color=grey fillcolor=white shape=ellipse style=filled]
+	10 [label="1.11\n10 (1536)" color=grey fillcolor=white shape=ellipse style=filled]
+	11 [label="1.12\n11 (1921)" color=grey fillcolor=white shape=ellipse style=filled]
+	12 [label="1.13\n12 (2215)" color=grey fillcolor=white shape=ellipse style=filled]
+	13 [label="1.14\n13 (1301)" color=grey fillcolor=white shape=ellipse style=filled]
+	14 [label="1.15\n14 (1824)" color=grey fillcolor=white shape=ellipse style=filled]
+	15 [label="2.1\n15 (1338)" color=grey fillcolor=white shape=ellipse style=filled]
+	16 [label="2.2\n16 (1441)" color=grey fillcolor=white shape=ellipse style=filled]
+	17 [label="2.3\n17 (1328)" color=grey fillcolor=white shape=ellipse style=filled]
+	18 [label="2.4\n18 (1406)" color=grey fillcolor=white shape=ellipse style=filled]
+	19 [label="2.5\n19 (1168)" color=grey fillcolor=white shape=ellipse style=filled]
+	20 [label="2.6\n20 (1480)" color=grey fillcolor=white shape=ellipse style=filled]
+	21 [label="2.7\n21 (1663)" color=grey fillcolor=white shape=ellipse style=filled]
+	22 [label="2.8\n22 (1961)" color=grey fillcolor=white shape=ellipse style=filled]
+	23 [label="2.9\n23 (3405)" color=grey fillcolor=white shape=ellipse style=filled]
+	24 [label="2.10\n24 (1377)" color=grey fillcolor=white shape=ellipse style=filled]
+	25 [label="2.11\n25 (1640)" color=grey fillcolor=white shape=ellipse style=filled]
+	26 [label="2.12\n26 (1204)" color=grey fillcolor=white shape=ellipse style=filled]
+	27 [label="2.13\n27 (2300)" color=grey fillcolor=white shape=ellipse style=filled]
+	28 [label="2.14\n28 (2399)" color=grey fillcolor=white shape=ellipse style=filled]
+	29 [label="2.15\n29 (1550)" color=grey fillcolor=white shape=ellipse style=filled]
+	30 [label="2.16\n30 (948)" color=grey fillcolor=white shape=ellipse style=filled]
+	31 [label="2.17\n31 (1322)" color=grey fillcolor=white shape=ellipse style=filled]
+	32 [label="2.18\n32 (2577)" color=grey fillcolor=white shape=ellipse style=filled]
+	33 [label="2.19\n33 (1570)" color=grey fillcolor=white shape=ellipse style=filled]
+	34 [label="2.20\n34 (2320)" color=grey fillcolor=white shape=ellipse style=filled]
+	35 [label="2.21\n35 (1714)" color=grey fillcolor=white shape=ellipse style=filled]
+	36 [label="2.22\n36 (1332)" color=grey fillcolor=white shape=ellipse style=filled]
+	37 [label="2.23\n37 (1728)" color=grey fillcolor=white shape=ellipse style=filled]
+	38 [label="2.24\n38 (1332)" color=grey fillcolor=white shape=ellipse style=filled]
+	39 [label="2.25\n39 (1794)" color=grey fillcolor=white shape=ellipse style=filled]
+	40 [label="2.26\n40 (2253)" color=grey fillcolor=white shape=ellipse style=filled]
+	41 [label="2.27\n41 (1611)" color=grey fillcolor=white shape=ellipse style=filled]
+	42 [label="2.28\n42 (1342)" color=grey fillcolor=white shape=ellipse style=filled]
+	43 [label="2.29\n43 (1767)" color=grey fillcolor=white shape=ellipse style=filled]
+	44 [label="2.30\n44 (1892)" color=grey fillcolor=white shape=ellipse style=filled]
+	45 [label="2.31\n45 (1787)" color=grey fillcolor=white shape=ellipse style=filled]
+	46 [label="2.32\n46 (1097)" color=grey fillcolor=white shape=ellipse style=filled]
+	47 [label="2.33\n47 (1259)" color=grey fillcolor=white shape=ellipse style=filled]
+	48 [label="2.34\n48 (1985)" color=grey fillcolor=white shape=ellipse style=filled]
+	49 [label="3.1\n49 (803)" color=grey fillcolor=white shape=ellipse style=filled]
+	50 [label="3.2\n50 (1556)" color=grey fillcolor=white shape=ellipse style=filled]
+	51 [label="3.3\n51 (1340)" color=grey fillcolor=white shape=ellipse style=filled]
+	52 [label="3.4\n52 (1259)" color=grey fillcolor=white shape=ellipse style=filled]
+	53 [label="3.5\n53 (1451)" color=grey fillcolor=white shape=ellipse style=filled]
+	54 [label="3.6\n54 (1493)" color=grey fillcolor=white shape=ellipse style=filled]
+	55 [label="3.7\n55 (1135)" color=grey fillcolor=white shape=ellipse style=filled]
+	56 [label="3.8\n56 (1081)" color=grey fillcolor=white shape=ellipse style=filled]
+	57 [label="3.9\n57 (1747)" color=grey fillcolor=white shape=ellipse style=filled]
+	58 [label="3.10\n58 (3031)" color=grey fillcolor=white shape=ellipse style=filled]
+	59 [label="3.11\n59 (1604)" color=grey fillcolor=white shape=ellipse style=filled]
+	60 [label="4.1\n60 (1384)" color=grey fillcolor=white shape=ellipse style=filled]
+	61 [label="4.2\n61 (2750)" color=grey fillcolor=white shape=ellipse style=filled]
+	62 [label="4.3\n62 (1552)" color=grey fillcolor=white shape=ellipse style=filled]
+	63 [label="4.4\n63 (1925)" color=grey fillcolor=white shape=ellipse style=filled]
+	64 [label="4.5\n64 (827)" color=grey fillcolor=white shape=ellipse style=filled]
+	65 [label="4.6\n65 (1216)" color=grey fillcolor=white shape=ellipse style=filled]
+	66 [label="4.7\n66 (1802)" color=grey fillcolor=white shape=ellipse style=filled]
+	67 [label="4.8\n67 (940)" color=grey fillcolor=white shape=ellipse style=filled]
+	68 [label="4.9\n68 (1254)" color=grey fillcolor=white shape=ellipse style=filled]
+	69 [label="4.10\n69 (1571)" color=grey fillcolor=white shape=ellipse style=filled]
+	70 [label="4.11\n70 (1528)" color=grey fillcolor=white shape=ellipse style=filled]
+	71 [label="4.12\n71 (647)" color=grey fillcolor=white shape=ellipse style=filled]
+	72 [label="4.13\n72 (1792)" color=grey fillcolor=white shape=ellipse style=filled]
+	73 [label="4.14\n73 (1219)" color=grey fillcolor=white shape=ellipse style=filled]
+	74 [label="4.15\n74 (3811)" color=grey fillcolor=white shape=ellipse style=filled]
+	75 [label="4.16\n75 (2557)" color=grey fillcolor=white shape=ellipse style=filled]
+	76 [label="4.17\n76 (1330)" color=grey fillcolor=white shape=ellipse style=filled]
+	77 [label="4.18\n77 (1437)" color=grey fillcolor=white shape=ellipse style=filled]
+	78 [label="4.19\n78 (1471)" color=grey fillcolor=white shape=ellipse style=filled]
+	79 [label="4.20\n79 (1645)" color=grey fillcolor=white shape=ellipse style=filled]
+	80 [label="5.1\n80 (1189)" color=grey fillcolor=white shape=ellipse style=filled]
+	81 [label="5.2\n81 (1309)" color=grey fillcolor=white shape=ellipse style=filled]
+	82 [label="5.3\n82 (1920)" color=grey fillcolor=white shape=ellipse style=filled]
+	83 [label="5.4\n83 (1040)" color=grey fillcolor=white shape=ellipse style=filled]
+	84 [label="5.5\n84 (2199)" color=grey fillcolor=white shape=ellipse style=filled]
+	85 [label="5.6\n85 (1631)" color=grey fillcolor=white shape=ellipse style=filled]
+	86 [label="5.7\n86 (823)" color=grey fillcolor=white shape=ellipse style=filled]
+	87 [label="5.8\n87 (761)" color=grey fillcolor=white shape=ellipse style=filled]
+	88 [label="5.9\n88 (855)" color=grey fillcolor=white shape=ellipse style=filled]
+	89 [label="5.10\n89 (2034)" color=grey fillcolor=white shape=ellipse style=filled]
+	90 [label="5.11\n90 (1195)" color=grey fillcolor=white shape=ellipse style=filled]
+	91 [label="5.12\n91 (1413)" color=grey fillcolor=white shape=ellipse style=filled]
+	92 [label="5.13\n92 (1677)" color=grey fillcolor=white shape=ellipse style=filled]
+	93 [label="5.14\n93 (1492)" color=grey fillcolor=white shape=ellipse style=filled]
+	94 [label="5.15\n94 (1719)" color=grey fillcolor=white shape=ellipse style=filled]
+	95 [label="5.16\n95 (1622)" color=grey fillcolor=white shape=ellipse style=filled]
+	96 [label="96 (2661)" color=grey height=1.8612761685901162 shape=ellipse style=filled width=3.7225523371802325]
+	97 [label="97 (1803)" color=grey height=1.744359355350189 shape=ellipse style=filled width=3.488718710700378]
+	98 [label="98 (1302)" color=grey height=1.6522350657097236 shape=ellipse style=filled width=3.304470131419447]
+	99 [label="99 (1207)" color=grey height=1.6315030224735907 shape=ellipse style=filled width=3.2630060449471814]
+	100 [label="100 (1056)" color=grey height=1.5955631246772233 shape=ellipse style=filled width=3.1911262493544466]
+	101 [label="101 (1003)" color=grey height=1.5819284130953433 shape=ellipse style=filled width=3.1638568261906865]
+	102 [label="102 (908)" color=grey height=1.5559094280587966 shape=ellipse style=filled width=3.1118188561175932]
+	103 [label="103 (833)" color=grey height=1.53371325602055 shape=ellipse style=filled width=3.0674265120411]
+	104 [label="104 (796)" color=grey height=1.5221432132008075 shape=ellipse style=filled width=3.044286426401615]
+	105 [label="105 (787)" color=grey height=1.5192612457473147 shape=ellipse style=filled width=3.0385224914946294]
+	106 [label="106 (754)" color=grey height=1.5084533898165478 shape=ellipse style=filled width=3.0169067796330955]
+	107 [label="107 (753)" color=grey height=1.5081197718567896 shape=ellipse style=filled width=3.016239543713579]
+	108 [label="108 (719)" color=grey height=1.4965508779983172 shape=ellipse style=filled width=2.9931017559966344]
+	109 [label="109 (718)" color=grey height=1.49620377116477 shape=ellipse style=filled width=2.99240754232954]
+	110 [label="110 (707)" color=grey height=1.4923587626594226 shape=ellipse style=filled width=2.984717525318845]
+	111 [label="111 (674)" color=grey height=1.4805167337408278 shape=ellipse style=filled width=2.9610334674816556]
+	112 [label="112 (666)" color=grey height=1.4775733265472788 shape=ellipse style=filled width=2.9551466530945576]
+	113 [label="113 (654)" color=grey height=1.4731024858743043 shape=ellipse style=filled width=2.9462049717486085]
+	114 [label="114 (640)" color=grey height=1.4677992676220695 shape=ellipse style=filled width=2.935598535244139]
+	115 [label="115 (630)" color=grey height=1.4639517480362352 shape=ellipse style=filled width=2.9279034960724704]
+	116 [label="116 (628)" color=grey height=1.4631761438259783 shape=ellipse style=filled width=2.9263522876519565]
+	117 [label="117 (597)" color=grey height=1.4508830025148969 shape=ellipse style=filled width=2.9017660050297938]
+	118 [label="118 (590)" color=grey height=1.4480337121875946 shape=ellipse style=filled width=2.896067424375189]
+	119 [label="119 (577)" color=grey height=1.4426665863322572 shape=ellipse style=filled width=2.8853331726645144]
+	120 [label="120 (576)" color=grey height=1.4422495703074083 shape=ellipse style=filled width=2.8844991406148166]
+	121 [label="121 (563)" color=grey height=1.4367727090538385 shape=ellipse style=filled width=2.873545418107677]
+	122 [label="122 (552)" color=grey height=1.432055503411503 shape=ellipse style=filled width=2.864111006823006]
+	123 [label="123 (532)" color=grey height=1.4232743076304628 shape=ellipse style=filled width=2.8465486152609256]
+	124 [label="124 (532)" color=grey height=1.4232743076304628 shape=ellipse style=filled width=2.8465486152609256]
+	125 [label="125 (516)" color=grey height=1.416049020524784 shape=ellipse style=filled width=2.832098041049568]
+	126 [label="126 (513)" color=grey height=1.4146735441583187 shape=ellipse style=filled width=2.8293470883166374]
+	127 [label="127 (510)" color=grey height=1.4132913482766047 shape=ellipse style=filled width=2.8265826965532095]
+	128 [label="128 (494)" color=grey height=1.40580309727843 shape=ellipse style=filled width=2.81160619455686]
+	129 [label="129 (491)" color=grey height=1.4043766058311968 shape=ellipse style=filled width=2.8087532116623937]
+	130 [label="130 (483)" color=grey height=1.4005368046863713 shape=ellipse style=filled width=2.8010736093727426]
+	131 [label="131 (476)" color=grey height=1.397133254362277 shape=ellipse style=filled width=2.794266508724554]
+	132 [label="132 (464)" color=grey height=1.3912003163865 shape=ellipse style=filled width=2.782400632773]
+	133 [label="133 (464)" color=grey height=1.3912003163865 shape=ellipse style=filled width=2.782400632773]
+	134 [label="134 (455)" color=grey height=1.3866661170755181 shape=ellipse style=filled width=2.7733322341510362]
+	135 [label="135 (441)" color=grey height=1.3794620881905602 shape=ellipse style=filled width=2.7589241763811203]
+	136 [label="136 (430)" color=grey height=1.3736668368173899 shape=ellipse style=filled width=2.7473336736347798]
+	137 [label="137 (423)" color=grey height=1.3699142992815565 shape=ellipse style=filled width=2.739828598563113]
+	138 [label="138 (412)" color=grey height=1.3639115496190457 shape=ellipse style=filled width=2.7278230992380914]
+	139 [label="139 (411)" color=grey height=1.3633592466418991 shape=ellipse style=filled width=2.7267184932837982]
+	140 [label="140 (388)" color=grey height=1.3503363497448218 shape=ellipse style=filled width=2.7006726994896435]
+	141 [label="141 (380)" color=grey height=1.3456556434914673 shape=ellipse style=filled width=2.6913112869829345]
+	142 [label="142 (371)" color=grey height=1.340290654172929 shape=ellipse style=filled width=2.680581308345858]
+	143 [label="143 (368)" color=grey height=1.3384782162993811 shape=ellipse style=filled width=2.6769564325987623]
+	144 [label="144 (340)" color=grey height=1.3209401999058177 shape=ellipse style=filled width=2.6418803998116354]
+	145 [label="145 (332)" color=grey height=1.3157085137509599 shape=ellipse style=filled width=2.6314170275019197]
+	146 [label="146 (330)" color=grey height=1.3143841932642053 shape=ellipse style=filled width=2.6287683865284106]
+	147 [label="147 (327)" color=grey height=1.312385116354765 shape=ellipse style=filled width=2.62477023270953]
+	148 [label="148 (322)" color=grey height=1.3090190985841865 shape=ellipse style=filled width=2.618038197168373]
+	149 [label="149 (316)" color=grey height=1.3049218949509085 shape=ellipse style=filled width=2.609843789901817]
+	150 [label="150 (309)" color=grey height=1.3000590661339861 shape=ellipse style=filled width=2.6001181322679723]
+	151 [label="151 (294)" color=grey height=1.289321503849115 shape=ellipse style=filled width=2.57864300769823]
+	152 [label="152 (292)" color=grey height=1.2878555273076535 shape=ellipse style=filled width=2.575711054615307]
+	153 [label="153 (291)" color=grey height=1.2871193988395822 shape=ellipse style=filled width=2.5742387976791643]
+	154 [label="154 (287)" color=grey height=1.2841536399611106 shape=ellipse style=filled width=2.5683072799222213]
+	155 [label="155 (273)" color=grey height=1.2734946129368148 shape=ellipse style=filled width=2.5469892258736295]
+	156 [label="156 (272)" color=grey height=1.2727159544213869 shape=ellipse style=filled width=2.5454319088427737]
+	157 [label="157 (267)" color=grey height=1.2687864965823552 shape=ellipse style=filled width=2.5375729931647104]
+	158 [label="158 (265)" color=grey height=1.2671975268838682 shape=ellipse style=filled width=2.5343950537677364]
+	159 [label="159 (261)" color=grey height=1.2639893718302486 shape=ellipse style=filled width=2.5279787436604972]
+	160 [label="160 (258)" color=grey height=1.2615562572094132 shape=ellipse style=filled width=2.5231125144188264]
+	161 [label="161 (249)" color=grey height=1.254112689469759 shape=ellipse style=filled width=2.508225378939518]
+	162 [label="162 (243)" color=grey height=1.2490247664834064 shape=ellipse style=filled width=2.498049532966813]
+	163 [label="163 (243)" color=grey height=1.2490247664834064 shape=ellipse style=filled width=2.498049532966813]
+	164 [label="164 (242)" color=grey height=1.2481666239298492 shape=ellipse style=filled width=2.4963332478596985]
+	165 [label="165 (240)" color=grey height=1.246441435839217 shape=ellipse style=filled width=2.492882871678434]
+	166 [label="166 (235)" color=grey height=1.2420754599436297 shape=ellipse style=filled width=2.4841509198872593]
+	167 [label="167 (227)" color=grey height=1.2349261314338866 shape=ellipse style=filled width=2.4698522628677733]
+	168 [label="168 (226)" color=grey height=1.2340177621209292 shape=ellipse style=filled width=2.4680355242418583]
+	169 [label="169 (226)" color=grey height=1.2340177621209292 shape=ellipse style=filled width=2.4680355242418583]
+	170 [label="170 (222)" color=grey height=1.23035045276855 shape=ellipse style=filled width=2.4607009055371]
+	171 [label="171 (222)" color=grey height=1.23035045276855 shape=ellipse style=filled width=2.4607009055371]
+	172 [label="172 (220)" color=grey height=1.228496106709102 shape=ellipse style=filled width=2.456992213418204]
+	173 [label="173 (214)" color=grey height=1.222847499662252 shape=ellipse style=filled width=2.445694999324504]
+	174 [label="174 (209)" color=grey height=1.2180386016460993 shape=ellipse style=filled width=2.4360772032921987]
+	175 [label="175 (207)" color=grey height=1.2160881649474182 shape=ellipse style=filled width=2.4321763298948365]
+	176 [label="176 (204)" color=grey height=1.213132857201071 shape=ellipse style=filled width=2.426265714402142]
+	177 [label="177 (201)" color=grey height=1.2101411077484572 shape=ellipse style=filled width=2.4202822154969144]
+	178 [label="178 (201)" color=grey height=1.2101411077484572 shape=ellipse style=filled width=2.4202822154969144]
+	179 [label="179 (201)" color=grey height=1.2101411077484572 shape=ellipse style=filled width=2.4202822154969144]
+	180 [label="180 (198)" color=grey height=1.2071119131268915 shape=ellipse style=filled width=2.414223826253783]
+	181 [label="181 (196)" color=grey height=1.2050711320876148 shape=ellipse style=filled width=2.4101422641752297]
+	182 [label="182 (196)" color=grey height=1.2050711320876148 shape=ellipse style=filled width=2.4101422641752297]
+	183 [label="183 (193)" color=grey height=1.2019771800196675 shape=ellipse style=filled width=2.403954360039335]
+	184 [label="184 (186)" color=grey height=1.1945990408275973 shape=ellipse style=filled width=2.3891980816551945]
+	185 [label="185 (184)" color=grey height=1.1924485271598866 shape=ellipse style=filled width=2.384897054319773]
+	186 [label="186 (182)" color=grey height=1.1902784451649395 shape=ellipse style=filled width=2.380556890329879]
+	edge [arrowsize=0.5]
+	0 -> -1 [color="#ffffffff"]
+	1 -> -1 [color="#ffffffff"]
+	2 -> -1 [color="#ffffffff"]
+	3 -> -1 [color="#ffffffff"]
+	4 -> -1 [color="#ffffffff"]
+	5 -> -1 [color="#ffffffff"]
+	6 -> -1 [color="#ffffffff"]
+	7 -> -1 [color="#ffffffff"]
+	8 -> -1 [color="#ffffffff"]
+	9 -> -1 [color="#ffffffff"]
+	10 -> -1 [color="#ffffffff"]
+	11 -> -1 [color="#ffffffff"]
+	12 -> -1 [color="#ffffffff"]
+	13 -> -1 [color="#ffffffff"]
+	14 -> -1 [color="#ffffffff"]
+	15 -> -1 [color="#ffffffff"]
+	16 -> -1 [color="#ffffffff"]
+	17 -> -1 [color="#ffffffff"]
+	18 -> -1 [color="#ffffffff"]
+	19 -> -1 [color="#ffffffff"]
+	20 -> -1 [color="#ffffffff"]
+	21 -> -1 [color="#ffffffff"]
+	22 -> -1 [color="#ffffffff"]
+	23 -> -1 [color="#ffffffff"]
+	24 -> -1 [color="#ffffffff"]
+	25 -> -1 [color="#ffffffff"]
+	26 -> -1 [color="#ffffffff"]
+	27 -> -1 [color="#ffffffff"]
+	28 -> -1 [color="#ffffffff"]
+	29 -> -1 [color="#ffffffff"]
+	30 -> -1 [color="#ffffffff"]
+	31 -> -1 [color="#ffffffff"]
+	32 -> -1 [color="#ffffffff"]
+	33 -> -1 [color="#ffffffff"]
+	34 -> -1 [color="#ffffffff"]
+	35 -> -1 [color="#ffffffff"]
+	36 -> -1 [color="#ffffffff"]
+	37 -> -1 [color="#ffffffff"]
+	38 -> -1 [color="#ffffffff"]
+	39 -> -1 [color="#ffffffff"]
+	40 -> -1 [color="#ffffffff"]
+	41 -> -1 [color="#ffffffff"]
+	42 -> -1 [color="#ffffffff"]
+	43 -> -1 [color="#ffffffff"]
+	44 -> -1 [color="#ffffffff"]
+	45 -> -1 [color="#ffffffff"]
+	46 -> -1 [color="#ffffffff"]
+	47 -> -1 [color="#ffffffff"]
+	48 -> -1 [color="#ffffffff"]
+	49 -> -1 [color="#ffffffff"]
+	50 -> -1 [color="#ffffffff"]
+	51 -> -1 [color="#ffffffff"]
+	52 -> -1 [color="#ffffffff"]
+	53 -> -1 [color="#ffffffff"]
+	54 -> -1 [color="#ffffffff"]
+	55 -> -1 [color="#ffffffff"]
+	56 -> -1 [color="#ffffffff"]
+	57 -> -1 [color="#ffffffff"]
+	58 -> -1 [color="#ffffffff"]
+	59 -> -1 [color="#ffffffff"]
+	60 -> -1 [color="#ffffffff"]
+	61 -> -1 [color="#ffffffff"]
+	62 -> -1 [color="#ffffffff"]
+	63 -> -1 [color="#ffffffff"]
+	64 -> -1 [color="#ffffffff"]
+	65 -> -1 [color="#ffffffff"]
+	66 -> -1 [color="#ffffffff"]
+	67 -> -1 [color="#ffffffff"]
+	68 -> -1 [color="#ffffffff"]
+	69 -> -1 [color="#ffffffff"]
+	70 -> -1 [color="#ffffffff"]
+	71 -> -1 [color="#ffffffff"]
+	72 -> -1 [color="#ffffffff"]
+	73 -> -1 [color="#ffffffff"]
+	74 -> -1 [color="#ffffffff"]
+	75 -> -1 [color="#ffffffff"]
+	76 -> -1 [color="#ffffffff"]
+	77 -> -1 [color="#ffffffff"]
+	78 -> -1 [color="#ffffffff"]
+	79 -> -1 [color="#ffffffff"]
+	80 -> -1 [color="#ffffffff"]
+	81 -> -1 [color="#ffffffff"]
+	82 -> -1 [color="#ffffffff"]
+	83 -> -1 [color="#ffffffff"]
+	84 -> -1 [color="#ffffffff"]
+	85 -> -1 [color="#ffffffff"]
+	86 -> -1 [color="#ffffffff"]
+	87 -> -1 [color="#ffffffff"]
+	88 -> -1 [color="#ffffffff"]
+	89 -> -1 [color="#ffffffff"]
+	90 -> -1 [color="#ffffffff"]
+	91 -> -1 [color="#ffffffff"]
+	92 -> -1 [color="#ffffffff"]
+	93 -> -1 [color="#ffffffff"]
+	94 -> -1 [color="#ffffffff"]
+	95 -> -1 [color="#ffffffff"]
+	96 -> 8
+	96 -> 1
+	97 -> 74
+	97 -> 23
+	98 -> 96
+	98 -> 61
+	99 -> 58
+	99 -> 75
+	100 -> 32
+	100 -> 28
+	101 -> 40
+	101 -> 34
+	102 -> 27
+	102 -> 12
+	103 -> 97
+	103 -> 22
+	104 -> 44
+	104 -> 84
+	105 -> 72
+	105 -> 63
+	106 -> 89
+	106 -> 39
+	107 -> 48
+	107 -> 43
+	108 -> 1
+	108 -> 61
+	109 -> 82
+	109 -> 14
+	110 -> 11
+	110 -> 45
+	111 -> 66
+	111 -> 94
+	112 -> 57
+	112 -> 35
+	113 -> 92
+	113 -> 37
+	114 -> 95
+	114 -> 79
+	115 -> 69
+	115 -> 62
+	116 -> 25
+	116 -> 4
+	117 -> 59
+	117 -> 6
+	118 -> 85
+	118 -> 54
+	119 -> 10
+	119 -> 50
+	120 -> 29
+	120 -> 70
+	121 -> 41
+	121 -> 20
+	122 -> 3
+	122 -> 21
+	123 -> 16
+	123 -> 93
+	124 -> 9
+	124 -> 98
+	125 -> 53
+	125 -> 15
+	126 -> 33
+	126 -> 77
+	127 -> 99
+	127 -> 78
+	128 -> 24
+	128 -> 38
+	129 -> 91
+	129 -> 47
+	130 -> 2
+	130 -> 18
+	131 -> 100
+	131 -> 101
+	132 -> 60
+	132 -> 13
+	133 -> 36
+	133 -> 76
+	134 -> 17
+	134 -> 42
+	135 -> 80
+	135 -> 81
+	136 -> 65
+	136 -> 31
+	137 -> 26
+	137 -> 68
+	138 -> 0
+	138 -> 19
+	139 -> 90
+	139 -> 52
+	140 -> 73
+	140 -> 102
+	141 -> 58
+	141 -> 74
+	142 -> 105
+	142 -> 103
+	143 -> 51
+	143 -> 55
+	144 -> 104
+	144 -> 106
+	145 -> 107
+	145 -> 111
+	146 -> 112
+	146 -> 109
+	147 -> 56
+	147 -> 7
+	148 -> 1
+	148 -> 23
+	149 -> 5
+	149 -> 46
+	150 -> 113
+	150 -> 116
+	151 -> 115
+	151 -> 83
+	152 -> 110
+	152 -> 30
+	153 -> 1
+	153 -> 74
+	154 -> 114
+	154 -> 131
+	155 -> 121
+	155 -> 117
+	156 -> 32
+	156 -> 27
+	157 -> 96
+	157 -> 74
+	158 -> 88
+	158 -> 67
+	159 -> 118
+	159 -> 119
+	160 -> 120
+	160 -> 123
+	161 -> 86
+	161 -> 127
+	162 -> 8
+	162 -> 61
+	163 -> 22
+	163 -> 23
+	164 -> 28
+	164 -> 84
+	165 -> 125
+	165 -> 126
+	166 -> 49
+	166 -> 130
+	167 -> 32
+	167 -> 12
+	168 -> 129
+	168 -> 132
+	169 -> 128
+	169 -> 140
+	170 -> 40
+	170 -> 75
+	171 -> 89
+	171 -> 58
+	172 -> 124
+	172 -> 133
+	173 -> 96
+	173 -> 9
+	174 -> 34
+	174 -> 75
+	175 -> 139
+	175 -> 135
+	176 -> 144
+	176 -> 154
+	177 -> 82
+	177 -> 11
+	178 -> 138
+	178 -> 150
+	179 -> 8
+	179 -> 74
+	180 -> 142
+	180 -> 134
+	181 -> 48
+	181 -> 57
+	182 -> 137
+	182 -> 146
+	183 -> 136
+	183 -> 145
+	184 -> 1
+	184 -> 58
+	185 -> 35
+	185 -> 14
+	186 -> 97
+	186 -> 70
+	{
+		rank=min
+	}
+}
