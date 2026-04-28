@@ -13,32 +13,23 @@ const sampleDot = `digraph {
   b4 [label=E color=grey shape=hexagon]
   b5 [label=F color=grey shape=hexagon]
   0 [label=DBCDBC color=grey style=filled]
-  0 [label=DBCDBC color=grey style=filled]
   0 -> -1 [color=grey]
   0 -> -3 [color=grey]
-  1 [label=CDEFEF color=grey style=filled]
   1 [label=CDEFEF color=grey style=filled]
   1 -> -1 [color=grey]
   1 -> -5 [color=grey]
   2 [label=DBC color=grey style=filled]
   2 -> 0 [color=grey]
-  2 -> 0 [color=grey]
-  3 [label=ABC color=grey style=filled]
   3 [label=ABC color=grey style=filled]
   3 -> -1 [color=grey]
   3 -> -5 [color=grey]
-  4 [label=BC color=grey style=filled]
-  4 [label=BC color=grey style=filled]
   4 [label=BC color=grey style=filled]
   4 -> 3 [color=grey]
   4 -> -4 [color=grey]
   4 -> 2 [color=grey]
   5 [label=EF color=grey style=filled]
-  5 [label=EF color=grey style=filled]
   5 -> -4 [color=grey]
   5 -> 1 [color=grey]
-  5 -> 1 [color=grey]
-  6 [label=CD color=grey style=filled]
   6 [label=CD color=grey style=filled]
   6 -> -4 [color=grey]
   6 -> 1 [color=grey]
@@ -52,7 +43,6 @@ const sampleDot = `digraph {
   b2 -> 6 [color=grey]
   b2 -> -1 [color=grey]
   b0 -> -2 [color=grey]
-  b0 -> -2 [color=grey]
   b1 -> -2 [color=grey]
   b0 -> -3 [color=grey]
   b2 -> -4 [color=grey]
@@ -65,28 +55,37 @@ const statusEl = document.getElementById("status");
 const layoutSelect = document.getElementById("layoutSelect");
 const applyLayoutBtn = document.getElementById("applyLayoutBtn");
 const toggleNodeTextBtn = document.getElementById("toggleNodeTextBtn");
-const saveImageBtn = document.getElementById("saveImageBtn");
-const toggle3DBtn = document.getElementById("toggle3DBtn");
-const mode3DInfo = document.getElementById("3dModeInfo");
 const nodeTextModeInfo = document.getElementById("nodeTextModeInfo");
+const subUpInput = document.getElementById("subUp");
+const subDownInput = document.getElementById("subDown");
+const extractBtn = document.getElementById("extractBtn");
+const subgraphInfo = document.getElementById("subgraphInfo");
+const swapBtn = document.getElementById("swapBtn");
+const subGraphTitle = document.getElementById("subGraphTitle");
 
 const HIGHLIGHT_RED = "#e60023";
 const INCOMING_GREEN = "#2f9e44";
 const CENTER_NODE_COLOR = "#5a0010";
 
 let network;
+let swapped = false;
+let selectedSubgraphNode = null;
 let nodes = new vis.DataSet([]);
 let edges = new vis.DataSet([]);
 let parsedGraph = null;
 let currentDotText = sampleDot;
 let nodeTextMode = "label";
-let is3DMode = false;
 let originalNodeStyle = new Map();
 let originalEdgeStyle = new Map();
-let highlightedNodeIds = new Set();
-let highlightedEdgeIds = new Set();
-let highlightedEdgeColor = new Map();
 let collapsedNodes = new Set();
+let highlightedNodeId = null;
+
+let subGraphs = [];
+const MAX_SUBGRAPHS = 3;
+let currentSubgraphLevel = 0;
+let displaySubgraphIndex = -1;
+
+let collapsedSubgraphs = new Map();
 
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
@@ -95,10 +94,7 @@ function setStatus(message, isError = false) {
 
 function cleanId(raw) {
   const value = String(raw).trim();
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
+  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
     return value.slice(1, -1);
   }
   return value;
@@ -123,7 +119,6 @@ function splitStatements(body) {
 
   for (let i = 0; i < body.length; i++) {
     const ch = body[i];
-
     if (inString) {
       current += ch;
       if (ch === quoteChar && body[i - 1] !== "\\") {
@@ -132,14 +127,12 @@ function splitStatements(body) {
       }
       continue;
     }
-
     if (ch === '"' || ch === "'") {
       inString = true;
       quoteChar = ch;
       current += ch;
       continue;
     }
-
     if (ch === "[") {
       bracketDepth++;
       current += ch;
@@ -150,36 +143,28 @@ function splitStatements(body) {
       current += ch;
       continue;
     }
-
     if ((ch === ";" || ch === "\n") && bracketDepth === 0) {
       const trimmed = current.trim();
       if (trimmed) result.push(trimmed);
       current = "";
       continue;
     }
-
     current += ch;
   }
-
   const tail = current.trim();
   if (tail) result.push(tail);
   return result;
 }
 
 function parseDot(dotText) {
-  const withoutComments = dotText
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\/\/.*$/gm, "");
-
+  const withoutComments = dotText.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
   const start = withoutComments.indexOf("{");
   const end = withoutComments.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) {
-    throw new Error("DOT 内容缺少有效的大括号结构。\n请确保格式类似：digraph { ... }");
+    throw new Error("DOT 内容缺少有效的大括号结构。");
   }
-
   const body = withoutComments.slice(start + 1, end);
   const statements = splitStatements(body);
-
   const graphAttrs = {};
   const defaultNodeAttrs = {};
   const defaultEdgeAttrs = {};
@@ -187,17 +172,13 @@ function parseDot(dotText) {
   const edgeList = [];
 
   for (const stmt of statements) {
-    if (stmt === "{" || stmt === "}") {
-      continue;
-    }
-
+    if (stmt === "{" || stmt === "}") continue;
     const edgeMatch = stmt.match(/^(.*?)\s*->\s*(.*)$/);
     if (edgeMatch) {
       const attrMatch = stmt.match(/\[(.*)\]\s*$/);
       const attrs = attrMatch ? parseAttributes(attrMatch[1]) : {};
       const edgeExpr = attrMatch ? stmt.slice(0, attrMatch.index).trim() : stmt.trim();
       const ids = edgeExpr.split(/->/).map((s) => cleanId(s.trim())).filter(Boolean);
-
       for (let i = 0; i < ids.length - 1; i++) {
         const from = ids[i];
         const to = ids[i + 1];
@@ -207,25 +188,21 @@ function parseDot(dotText) {
       }
       continue;
     }
-
     const nodeDefaultMatch = stmt.match(/^node\s*\[(.*)\]$/i);
     if (nodeDefaultMatch) {
       Object.assign(defaultNodeAttrs, parseAttributes(nodeDefaultMatch[1]));
       continue;
     }
-
     const edgeDefaultMatch = stmt.match(/^edge\s*\[(.*)\]$/i);
     if (edgeDefaultMatch) {
       Object.assign(defaultEdgeAttrs, parseAttributes(edgeDefaultMatch[1]));
       continue;
     }
-
     const graphAttrPairs = parseAttributes(stmt);
     if (Object.keys(graphAttrPairs).length > 0 && !stmt.includes("[") && !stmt.includes("]")) {
       Object.assign(graphAttrs, graphAttrPairs);
       continue;
     }
-
     const nodeMatch = stmt.match(/^(.+?)\s*\[(.*)\]$/);
     if (nodeMatch) {
       const id = cleanId(nodeMatch[1].trim());
@@ -234,18 +211,12 @@ function parseDot(dotText) {
       nodeMap.set(id, { ...prev, attrs: { ...(prev.attrs || {}), ...attrs } });
       continue;
     }
-
     const loneId = cleanId(stmt);
     if (loneId && !nodeMap.has(loneId)) {
       nodeMap.set(loneId, { id: loneId, attrs: { ...defaultNodeAttrs } });
     }
   }
-
-  return {
-    graphAttrs,
-    nodes: Array.from(nodeMap.values()),
-    edges: edgeList,
-  };
+  return { graphAttrs, nodes: Array.from(nodeMap.values()), edges: edgeList };
 }
 
 function dotShapeToVis(dotShape) {
@@ -265,7 +236,6 @@ function toVisData(parsed) {
     const dotLabel = attrs.label || n.id;
     const shape = dotShapeToVis(attrs.shape);
     const isHex = shape === "hexagon";
-
     return {
       id: n.id,
       label: dotLabel,
@@ -277,29 +247,13 @@ function toVisData(parsed) {
       originalWidthConstraint: isHex ? { minimum: 34 } : undefined,
       originalHeightConstraint: isHex ? { minimum: 30 } : undefined,
       color: fill
-        ? {
-            background: fillColor,
-            border: borderColor,
-            highlight: { background: fillColor, border: "#111" },
-          }
+        ? { background: fillColor, border: borderColor, highlight: { background: fillColor, border: "#111" } }
         : { border: borderColor, background: "#ffffff", highlight: { border: "#111", background: "#ffffff" } },
-      font: {
-        face: "Avenir Next, PingFang SC, Noto Sans SC, sans-serif",
-        size: isHex ? 12 : 14,
-        color: "#111111",
-      },
+      font: { face: "Avenir Next, PingFang SC, Noto Sans SC, sans-serif", size: isHex ? 12 : 14, color: "#111111" },
       borderWidth: 1.5,
-      ...(isHex
-        ? {
-            size: 24,
-            widthConstraint: { minimum: 34 },
-            heightConstraint: { minimum: 30 },
-            shapeProperties: { borderDashes: false },
-          }
-        : {}),
+      ...(isHex ? { size: 24, widthConstraint: { minimum: 34 }, heightConstraint: { minimum: 30 }, shapeProperties: { borderDashes: false } } : {}),
     };
   });
-
   const visEdges = parsed.edges.map((e, i) => {
     const color = e.attrs.color || "#888";
     return {
@@ -312,7 +266,6 @@ function toVisData(parsed) {
       smooth: { type: "dynamic" },
     };
   });
-
   return { visNodes, visEdges };
 }
 
@@ -329,47 +282,13 @@ function isHierarchicalLayoutMode(layoutMode) {
 }
 
 function buildLayoutOptions(layoutMode) {
-  if (layoutMode === "ruleBased") {
-    return {
-      layout: { improvedLayout: false },
-      physics: false,
-    };
-  }
-
-  if (layoutMode === "force") {
-    return {
-      layout: { improvedLayout: true },
-      physics: { enabled: true, stabilization: true },
-    };
-  }
-
-  if (layoutMode === "circle") {
-    return {
-      layout: { improvedLayout: false },
-      physics: false,
-    };
-  }
-
+  if (layoutMode === "ruleBased") return { layout: { improvedLayout: false }, physics: false };
+  if (layoutMode === "force") return { layout: { improvedLayout: true }, physics: { enabled: true, stabilization: true } };
+  if (layoutMode === "circle") return { layout: { improvedLayout: false }, physics: false };
   let direction = "UD";
-  if (layoutMode === "fromDot") {
-    direction = rankdirToDirection(parsedGraph?.graphAttrs?.rankdir);
-  } else if (layoutMode === "hierarchicalLR") {
-    direction = "LR";
-  }
-
-  return {
-    layout: {
-      hierarchical: {
-        enabled: true,
-        direction,
-        sortMethod: "directed",
-        levelSeparation: 120,
-        nodeSpacing: 90,
-        treeSpacing: 120,
-      },
-    },
-    physics: false,
-  };
+  if (layoutMode === "fromDot") direction = rankdirToDirection(parsedGraph?.graphAttrs?.rankdir);
+  else if (layoutMode === "hierarchicalLR") direction = "LR";
+  return { layout: { hierarchical: { enabled: true, direction, sortMethod: "directed", levelSeparation: 120, nodeSpacing: 90, treeSpacing: 120 } }, physics: false };
 }
 
 function buildNetworkOptions(layoutMode) {
@@ -377,14 +296,7 @@ function buildNetworkOptions(layoutMode) {
     autoResize: true,
     edges: { arrows: { to: { enabled: true } } },
     nodes: { margin: 8 },
-    interaction: {
-      dragNodes: true,
-      dragView: true,
-      zoomView: true,
-      multiselect: false,
-      selectConnectedEdges: false,
-      hoverConnectedEdges: false,
-    },
+    interaction: { dragNodes: true, dragView: true, zoomView: true, multiselect: false, selectConnectedEdges: false, hoverConnectedEdges: false },
     manipulation: false,
     ...buildLayoutOptions(layoutMode),
   };
@@ -395,44 +307,29 @@ function buildFreeDragOptions() {
     autoResize: true,
     edges: { arrows: { to: { enabled: true } } },
     nodes: { margin: 8 },
-    interaction: {
-      dragNodes: true,
-      dragView: true,
-      zoomView: true,
-      multiselect: false,
-      selectConnectedEdges: false,
-      hoverConnectedEdges: false,
-    },
+    interaction: { dragNodes: true, dragView: true, zoomView: true, multiselect: false, selectConnectedEdges: false, hoverConnectedEdges: false },
     manipulation: false,
     layout: { improvedLayout: false },
     physics: false,
   };
 }
 
-function applyCirclePositions() {
-  const all = nodes.get();
+function applyCirclePositions(net, nodeDataSet) {
+  const all = nodeDataSet.get();
   const n = all.length;
   if (!n) return;
-
   const radius = 260 + n * 3;
   const updates = all.map((node, i) => {
     const angle = (2 * Math.PI * i) / n;
-    return {
-      id: node.id,
-      x: Math.round(radius * Math.cos(angle)),
-      y: Math.round(radius * Math.sin(angle)),
-      fixed: false,
-    };
+    return { id: node.id, x: Math.round(radius * Math.cos(angle)), y: Math.round(radius * Math.sin(angle)), fixed: false };
   });
-
-  nodes.update(updates);
-  network.fit({ animation: true });
+  nodeDataSet.update(updates);
+  net.fit({ animation: true });
 }
 
-function computeRuleBasedPositionUpdates() {
-  const nodeIds = nodes.getIds();
-  const edgeList = edges.get();
-
+function computeRuleBasedPositionUpdates(nodeDataSet, edgeDataSet) {
+  const nodeIds = nodeDataSet.getIds();
+  const edgeList = edgeDataSet.get();
   const incoming = new Map();
   const outgoing = new Map();
   const indegree = new Map();
@@ -444,24 +341,18 @@ function computeRuleBasedPositionUpdates() {
     indegree.set(id, 0);
     level.set(id, 0);
   }
-
   for (const edge of edgeList) {
     if (!incoming.has(edge.to) || !outgoing.has(edge.from)) continue;
     incoming.get(edge.to).push(edge.from);
     outgoing.get(edge.from).push(edge.to);
     indegree.set(edge.to, (indegree.get(edge.to) || 0) + 1);
   }
-
-  const queue = nodeIds
-    .filter((id) => (indegree.get(id) || 0) === 0)
-    .sort((a, b) => String(a).localeCompare(String(b)));
-
+  const queue = nodeIds.filter((id) => (indegree.get(id) || 0) === 0).sort((a, b) => String(a).localeCompare(String(b)));
   const processed = new Set();
   while (queue.length) {
     const u = queue.shift();
     if (processed.has(u)) continue;
     processed.add(u);
-
     const base = level.get(u) || 0;
     for (const v of outgoing.get(u) || []) {
       const candidate = base + 1;
@@ -470,8 +361,6 @@ function computeRuleBasedPositionUpdates() {
       if ((indegree.get(v) || 0) === 0) queue.push(v);
     }
   }
-
-  // Fallback for non-DAG parts: relax levels repeatedly.
   if (processed.size < nodeIds.length) {
     for (let i = 0; i < nodeIds.length; i++) {
       let changed = false;
@@ -486,7 +375,6 @@ function computeRuleBasedPositionUpdates() {
       if (!changed) break;
     }
   }
-
   const levelBuckets = new Map();
   let maxLevel = 0;
   for (const id of nodeIds) {
@@ -495,50 +383,30 @@ function computeRuleBasedPositionUpdates() {
     levelBuckets.get(lv).push(id);
     if (lv > maxLevel) maxLevel = lv;
   }
-
   const xById = new Map();
   const yById = new Map();
   const xGap = 140;
   const yGap = 130;
-
   for (let lv = 0; lv <= maxLevel; lv++) {
     const bucket = levelBuckets.get(lv) || [];
     const scored = bucket.map((id) => {
       const preds = (incoming.get(id) || []).filter((p) => xById.has(p));
-      if (!preds.length) {
-        return { id, score: Number.POSITIVE_INFINITY };
-      }
+      if (!preds.length) return { id, score: Number.POSITIVE_INFINITY };
       const avg = preds.reduce((sum, p) => sum + xById.get(p), 0) / preds.length;
       return { id, score: avg };
     });
-
-    scored.sort((a, b) => {
-      if (a.score === b.score) {
-        return String(a.id).localeCompare(String(b.id));
-      }
-      return a.score - b.score;
-    });
-
+    scored.sort((a, b) => a.score === b.score ? String(a.id).localeCompare(String(b.id)) : a.score - b.score);
     const n = scored.length;
     for (let i = 0; i < n; i++) {
-      const id = scored[i].id;
-      const x = (i - (n - 1) / 2) * xGap;
-      const y = (maxLevel - lv) * yGap;
-      xById.set(id, x);
-      yById.set(id, y);
+      xById.set(scored[i].id, (i - (n - 1) / 2) * xGap);
+      yById.set(scored[i].id, (maxLevel - lv) * yGap);
     }
   }
-
-  return nodeIds.map((id) => ({
-    id,
-    x: xById.get(id) || 0,
-    y: yById.get(id) || 0,
-    fixed: false,
-  }));
+  return nodeIds.map((id) => ({ id, x: xById.get(id) || 0, y: yById.get(id) || 0, fixed: false }));
 }
 
-function applyRuleBasedPositions() {
-  nodes.update(computeRuleBasedPositionUpdates());
+function applyRuleBasedPositions(net, nodeDataSet, edgeDataSet) {
+  nodeDataSet.update(computeRuleBasedPositionUpdates(nodeDataSet, edgeDataSet));
 }
 
 function cloneValue(value) {
@@ -547,151 +415,44 @@ function cloneValue(value) {
 
 function updateNodeTextModeInfo() {
   if (!nodeTextModeInfo || !toggleNodeTextBtn) return;
-  if (nodeTextMode === "label") {
-    nodeTextModeInfo.textContent = "当前显示：Label";
-    toggleNodeTextBtn.textContent = "切换为显示 ID";
-  } else {
-    nodeTextModeInfo.textContent = "当前显示：节点 ID";
-    toggleNodeTextBtn.textContent = "切换为显示 Label";
-  }
+  nodeTextModeInfo.textContent = nodeTextMode === "label" ? "当前显示：Label" : "当前显示：节点 ID";
+  toggleNodeTextBtn.textContent = nodeTextMode === "label" ? "切换为显示 ID" : "切换为显示 Label";
 }
 
-function applyNodeTextMode() {
-  const updates = nodes.get().map((node) => ({
+function applyNodeTextMode(nodeDataSet) {
+  const updates = nodeDataSet.get().map((node) => ({
     id: node.id,
     label: nodeTextMode === "id" ? String(node.id) : String(node.dotLabel ?? node.id),
   }));
-  nodes.update(updates);
+  nodeDataSet.update(updates);
   updateNodeTextModeInfo();
 }
 
-function cacheOriginalStyles() {
+function cacheOriginalStyles(nodeDataSet, edgeDataSet) {
   originalNodeStyle = new Map();
-  for (const n of nodes.get()) {
-    originalNodeStyle.set(n.id, {
-      color: cloneValue(n.color),
-      borderWidth: n.borderWidth,
-      font: cloneValue(n.font),
-    });
+  for (const n of nodeDataSet.get()) {
+    originalNodeStyle.set(n.id, { color: cloneValue(n.color), borderWidth: n.borderWidth, font: cloneValue(n.font) });
   }
-
   originalEdgeStyle = new Map();
-  for (const e of edges.get()) {
-    originalEdgeStyle.set(e.id, {
-      color: cloneValue(e.color),
-      width: e.width,
-    });
+  for (const e of edgeDataSet.get()) {
+    originalEdgeStyle.set(e.id, { color: cloneValue(e.color), width: e.width });
   }
-
-  highlightedNodeIds = new Set();
-  highlightedEdgeIds = new Set();
-  highlightedEdgeColor = new Map();
 }
 
-function restoreNode(id) {
-  const baseline = originalNodeStyle.get(id);
-  if (!baseline) return;
-  const font = cloneValue(baseline.font) || {};
-  if (!font.color) font.color = "#111111";
-  nodes.update({
-    id,
-    color: cloneValue(baseline.color),
-    borderWidth: baseline.borderWidth,
-    font,
-  });
-}
-
-function restoreEdge(id) {
-  const baseline = originalEdgeStyle.get(id);
-  if (!baseline) return;
-  edges.update({
-    id,
-    color: cloneValue(baseline.color),
-    width: baseline.width,
-  });
-}
-
-function hexToRgb(hex) {
-  const raw = String(hex || "").trim().replace("#", "");
-  const full =
-    raw.length === 3
-      ? raw
-          .split("")
-          .map((ch) => ch + ch)
-          .join("")
-      : raw;
-  const safe = full.padEnd(6, "0").slice(0, 6);
-  return {
-    r: Number.parseInt(safe.slice(0, 2), 16),
-    g: Number.parseInt(safe.slice(2, 4), 16),
-    b: Number.parseInt(safe.slice(4, 6), 16),
-  };
-}
-
-function relativeLuminance(hex) {
-  const { r, g, b } = hexToRgb(hex);
-  const toLinear = (v) => {
-    const s = v / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  };
-  const R = toLinear(r);
-  const G = toLinear(g);
-  const B = toLinear(b);
-  return 0.2126 * R + 0.7152 * G + 0.0722 * B;
-}
-
-function readableTextColor(bgHex) {
-  const L = relativeLuminance(bgHex);
-  const contrastWhite = (1.0 + 0.05) / (L + 0.05);
-  const contrastBlack = (L + 0.05) / (0.0 + 0.05);
-  return contrastBlack >= contrastWhite ? "#111111" : "#ffffff";
-}
-
-function rgbToHex(r, g, b) {
-  const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
-  return `#${[clamp(r), clamp(g), clamp(b)]
-    .map((v) => v.toString(16).padStart(2, "0"))
-    .join("")}`;
-}
-
-function mixWithWhite(baseHex, ratio) {
-  const t = Math.max(0, Math.min(1, ratio));
-  const c = hexToRgb(baseHex);
-  return rgbToHex(c.r + (255 - c.r) * t, c.g + (255 - c.g) * t, c.b + (255 - c.b) * t);
-}
-
-function layeredGradientColor(baseHex, distance, maxDistance) {
-  if (distance <= 1 || maxDistance <= 1) return baseHex;
-  const t = (distance - 1) / (maxDistance - 1);
-  const mixRatio = 0.18 + 0.6 * t;
-  return mixWithWhite(baseHex, mixRatio);
-}
-
-function clearTransientHighlight() {
-  for (const id of nodes.getIds()) restoreNode(id);
-  for (const id of edges.getIds()) restoreEdge(id);
-  highlightedNodeIds = new Set();
-  highlightedEdgeIds = new Set();
-  highlightedEdgeColor = new Map();
-}
-
-function getChildNodes(nodeId) {
-  const allEdges = edges.get();
+function getChildNodes(nodeId, edgeDataSet) {
   const children = [];
-  for (const edge of allEdges) {
-    if (String(edge.from) === String(nodeId)) {
-      children.push(edge.to);
-    }
+  for (const edge of edgeDataSet.get()) {
+    if (String(edge.from) === String(nodeId)) children.push(edge.to);
   }
   return children;
 }
 
-function getAllDescendants(nodeId) {
+function getAllDescendants(nodeId, edgeDataSet) {
   const descendants = new Set();
   const queue = [nodeId];
   while (queue.length > 0) {
     const current = queue.shift();
-    const children = getChildNodes(current);
+    const children = getChildNodes(current, edgeDataSet);
     for (const child of children) {
       if (!descendants.has(child)) {
         descendants.add(child);
@@ -702,244 +463,122 @@ function getAllDescendants(nodeId) {
   return descendants;
 }
 
-function collapseNode(nodeId) {
-  const descendants = getAllDescendants(nodeId);
+function getCollapsedKey(nodeId, edgeDataSet) {
+  return "node_" + nodeId + "_edges_" + edgeDataSet.get().length;
+}
+
+function expandNodeInGraph(nodeId, nodeDataSet, edgeDataSet) {
+  const key = getCollapsedKey(nodeId, edgeDataSet);
+  if (collapsedSubgraphs.has(key)) {
+    const stored = collapsedSubgraphs.get(key);
+    if (stored && stored.hiddenNodes) {
+      for (const id of stored.hiddenNodes) {
+        nodeDataSet.update({ id, hidden: false });
+      }
+    }
+    if (stored && stored.hiddenEdges) {
+      for (const edgeId of stored.hiddenEdges) {
+        edgeDataSet.update({ id: edgeId, hidden: false });
+      }
+    }
+    collapsedSubgraphs.delete(key);
+  }
+}
+
+function collapseNodeInGraph(nodeId, nodeDataSet, edgeDataSet) {
+  const descendants = getAllDescendants(nodeId, edgeDataSet);
   if (descendants.size === 0) return false;
   
+  const hiddenNodes = new Set();
+  const hiddenEdges = new Set();
+  
   for (const id of descendants) {
-    nodes.update({ id: id, hidden: true });
-    collapsedNodes.add(String(id));
+    hiddenNodes.add(String(id));
+    nodeDataSet.update({ id, hidden: true });
   }
   
-  const childList = getChildNodes(nodeId);
-  for (const child of childList) {
-    edges.get().forEach(edge => {
-      if (String(edge.from) === String(child) ){
-        edges.update({ id: edge.id, hidden: true });
-      }
-      if (String(edge.to) === String(child)) {
-        edges.update({ id: edge.id, hidden: true });
-      }
-    });
+  for (const edge of edgeDataSet.get()) {
+    if (descendants.has(String(edge.to))) {
+      hiddenEdges.add(edge.id);
+      edgeDataSet.update({ id: edge.id, hidden: true });
+    }
   }
   
-  if (is3DMode) {
-    network.setOptions({ physics: { enabled: true } });
-    network.once("stabilizationIterationsDone", () => {
-      network.setOptions({ physics: { enabled: false } });
-    });
-  }
-  
+  collapsedSubgraphs.set(getCollapsedKey(nodeId, edgeDataSet), { hiddenNodes, hiddenEdges });
   return true;
 }
 
-function expandNode(nodeId) {
-  const descendants = getAllDescendants(nodeId);
-  if (descendants.size === 0) return false;
-  
-  for (const id of descendants) {
-    if (collapsedNodes.has(String(id))) {
-      nodes.update({ id: id, hidden: false });
-      collapsedNodes.delete(String(id));
+function isNodeCollapsed(nodeId, edgeDataSet) {
+  return collapsedSubgraphs.has(getCollapsedKey(nodeId, edgeDataSet));
+}
+
+function highlightNode(nodeId, nodeDataSet, edgeDataSet) {
+  if (highlightedNodeId) {
+    const prevStyle = originalNodeStyle.get(highlightedNodeId);
+    if (prevStyle) {
+      nodeDataSet.update({
+        id: highlightedNodeId,
+        color: cloneValue(prevStyle.color),
+        borderWidth: prevStyle.borderWidth
+      });
     }
   }
   
-  edges.get().forEach(edge => {
-    if (!nodes.get(edge.from)?.hidden && !nodes.get(edge.to)?.hidden) {
-      edges.update({ id: edge.id, hidden: false });
-    }
-  });
-  
-  if (is3DMode) {
-    network.setOptions({ physics: { enabled: true } });
-    network.once("stabilizationIterationsDone", () => {
-      network.setOptions({ physics: { enabled: false } });
+  const style = originalNodeStyle.get(nodeId);
+  if (style) {
+    nodeDataSet.update({
+      id: nodeId,
+      color: { background: HIGHLIGHT_RED, border: HIGHLIGHT_RED, highlight: { background: HIGHLIGHT_RED, border: HIGHLIGHT_RED } },
+      borderWidth: 3
     });
   }
   
-  return true;
+  highlightedNodeId = nodeId;
 }
 
-function computeDirectionalReach(centerId) {
-  const allEdges = edges.get();
-  const outgoingByNode = new Map();
-  const incomingByNode = new Map();
-
-  for (const nodeId of nodes.getIds()) {
-    outgoingByNode.set(nodeId, []);
-    incomingByNode.set(nodeId, []);
+function clearHighlight(nodeDataSet, edgeDataSet) {
+  if (highlightedNodeId) {
+    const prevStyle = originalNodeStyle.get(highlightedNodeId);
+    if (prevStyle) {
+      nodeDataSet.update({
+        id: highlightedNodeId,
+        color: cloneValue(prevStyle.color),
+        borderWidth: prevStyle.borderWidth
+      });
+    }
   }
+  highlightedNodeId = null;
+}
 
-  for (const edge of allEdges) {
-    if (!outgoingByNode.has(edge.from)) outgoingByNode.set(edge.from, []);
-    if (!incomingByNode.has(edge.to)) incomingByNode.set(edge.to, []);
-    outgoingByNode.get(edge.from).push(edge);
-    incomingByNode.get(edge.to).push(edge);
-  }
-
-  const upNodeDist = new Map([[centerId, 0]]);
-  const upEdgeDist = new Map();
-  const upQueue = [centerId];
-  while (upQueue.length) {
-    const u = upQueue.shift();
-    const du = upNodeDist.get(u) || 0;
-    for (const edge of outgoingByNode.get(u) || []) {
-      const step = du + 1;
-      const prevEdge = upEdgeDist.get(edge.id);
-      if (prevEdge == null || step < prevEdge) upEdgeDist.set(edge.id, step);
-      if (!upNodeDist.has(edge.to)) {
-        upNodeDist.set(edge.to, step);
-        upQueue.push(edge.to);
+function bindNetworkEvents(net, nodeDataSet, edgeDataSet) {
+  net.on("click", ({ nodes: clickedNodes, edges: clickedEdges }) => {
+    if (clickedNodes && clickedNodes.length > 0) {
+      net.setSelection({ nodes: [clickedNodes[0]], edges: [] }, { unselectAll: true });
+      const nodeId = clickedNodes[0];
+      if (isNodeCollapsed(nodeId, edgeDataSet)) {
+        expandNodeInGraph(nodeId, nodeDataSet, edgeDataSet);
+        setStatus(`已展开节点: ${nodeId}`);
+      } else {
+        const hasDescendants = getAllDescendants(nodeId, edgeDataSet).size > 0;
+        if (hasDescendants) {
+          collapseNodeInGraph(nodeId, nodeDataSet, edgeDataSet);
+          setStatus(`已收缩节点: ${nodeId}`);
+        }
       }
-    }
-  }
-
-  const downNodeDist = new Map([[centerId, 0]]);
-  const downEdgeDist = new Map();
-  const downQueue = [centerId];
-  while (downQueue.length) {
-    const u = downQueue.shift();
-    const du = downNodeDist.get(u) || 0;
-    for (const edge of incomingByNode.get(u) || []) {
-      const step = du + 1;
-      const prevEdge = downEdgeDist.get(edge.id);
-      if (prevEdge == null || step < prevEdge) downEdgeDist.set(edge.id, step);
-      if (!downNodeDist.has(edge.from)) {
-        downNodeDist.set(edge.from, step);
-        downQueue.push(edge.from);
-      }
-    }
-  }
-
-  return { upNodeDist, upEdgeDist, downNodeDist, downEdgeDist };
-}
-
-function updateTransientHighlight(selectedNodeIds) {
-  const centerId = (selectedNodeIds || [])[0];
-  clearTransientHighlight();
-  if (!centerId) return;
-
-  const { upNodeDist, upEdgeDist, downNodeDist, downEdgeDist } = computeDirectionalReach(centerId);
-  const maxUpNodeDist = Math.max(...upNodeDist.values());
-  const maxDownNodeDist = Math.max(...downNodeDist.values());
-  const maxUpEdgeDist = Math.max(0, ...upEdgeDist.values());
-  const maxDownEdgeDist = Math.max(0, ...downEdgeDist.values());
-
-  const nodeUpdates = [];
-  const edgeUpdates = [];
-  const highlightFontFor = (id, bgColor) => ({
-    ...(cloneValue(originalNodeStyle.get(id)?.font) || {}),
-    color: readableTextColor(bgColor),
-  });
-
-  nodeUpdates.push({
-    id: centerId,
-    color: {
-      border: "#000000",
-      background: CENTER_NODE_COLOR,
-      highlight: { border: "#000000", background: CENTER_NODE_COLOR },
-      hover: { border: "#000000", background: CENTER_NODE_COLOR },
-    },
-    borderWidth: 3.4,
-    font: highlightFontFor(centerId, CENTER_NODE_COLOR),
-  });
-  highlightedNodeIds.add(centerId);
-
-  for (const [id, dist] of upNodeDist.entries()) {
-    if (id === centerId || dist <= 0) continue;
-    const color = layeredGradientColor(HIGHLIGHT_RED, dist, maxUpNodeDist);
-    nodeUpdates.push({
-      id,
-      color: {
-        border: "#111111",
-        background: color,
-        highlight: { border: "#000000", background: color },
-        hover: { border: "#000000", background: color },
-      },
-      borderWidth: 3,
-      font: highlightFontFor(id, color),
-    });
-    highlightedNodeIds.add(id);
-  }
-
-  for (const [id, dist] of downNodeDist.entries()) {
-    if (id === centerId || dist <= 0 || highlightedNodeIds.has(id)) continue;
-    const color = layeredGradientColor(INCOMING_GREEN, dist, maxDownNodeDist);
-    nodeUpdates.push({
-      id,
-      color: {
-        border: "#111111",
-        background: color,
-        highlight: { border: "#000000", background: color },
-        hover: { border: "#000000", background: color },
-      },
-      borderWidth: 3,
-      font: highlightFontFor(id, color),
-    });
-    highlightedNodeIds.add(id);
-  }
-
-  for (const [id, dist] of upEdgeDist.entries()) {
-    const color = layeredGradientColor(HIGHLIGHT_RED, dist, maxUpEdgeDist);
-    edgeUpdates.push({
-      id,
-      color: { color, highlight: color, hover: color },
-      width: 3.2,
-    });
-    highlightedEdgeIds.add(id);
-    highlightedEdgeColor.set(id, color);
-  }
-
-  for (const [id, dist] of downEdgeDist.entries()) {
-    if (highlightedEdgeIds.has(id)) continue;
-    const color = layeredGradientColor(INCOMING_GREEN, dist, maxDownEdgeDist);
-    edgeUpdates.push({
-      id,
-      color: { color, highlight: color, hover: color },
-      width: 3.2,
-    });
-    highlightedEdgeIds.add(id);
-    highlightedEdgeColor.set(id, color);
-  }
-
-  nodes.update(nodeUpdates);
-  edges.update(edgeUpdates);
-}
-
-function bindNetworkEvents() {
-  const syncHighlightFromSelection = () => {
-    const selection = network.getSelection();
-    updateTransientHighlight(selection.nodes);
-  };
-
-  network.on("click", ({ nodes: clickedNodes }) => {
-    if (clickedNodes.length) {
-      network.setSelection({ nodes: [clickedNodes[0]], edges: [] }, { unselectAll: true });
+      highlightNode(nodeId, nodeDataSet, edgeDataSet);
     } else {
-      network.unselectAll();
+      net.unselectAll();
+      clearHighlight(nodeDataSet, edgeDataSet);
     }
-    syncHighlightFromSelection();
   });
 
-  network.on("select", syncHighlightFromSelection);
-  network.on("deselectNode", syncHighlightFromSelection);
-  network.on("deselectEdge", syncHighlightFromSelection);
-  
-  network.on("doubleClick", ({ nodes: clickedNodes }) => {
-    if (!clickedNodes || clickedNodes.length === 0) return;
-    
-    const nodeId = clickedNodes[0];
-    const descendants = getAllDescendants(nodeId);
-    const hasCollapsedChild = Array.from(descendants).some(id => collapsedNodes.has(String(id)));
-    
-    if (hasCollapsedChild) {
-      expandNode(nodeId);
-      setStatus(`已展开节点: ${nodeId}`);
-    } else {
-      if (descendants.size > 0) {
-        collapseNode(nodeId);
-        setStatus(`已收缩节点: ${nodeId} (含 ${descendants.size} 个子节点)`);
-      }
+  net.on("select", ({ nodes: selectedNodes }) => {
+    if (selectedNodes && selectedNodes.length > 0) {
+      highlightNode(selectedNodes[0], nodeDataSet, edgeDataSet);
+      const nodeId = selectedNodes[0];
+      selectedSubgraphNode = nodeId;
+      currentSubgraphLevel = (net === network ? 0 : ((net.subgraphIndex !== undefined) ? net.subgraphIndex : 0));
+      updateExtractButton();
     }
   });
 }
@@ -947,60 +586,52 @@ function bindNetworkEvents() {
 function createOrResetNetwork(layoutMode) {
   const container = document.getElementById("network");
   if (network) network.destroy();
-
   if (layoutMode === "ruleBased") {
-    applyRuleBasedPositions();
+    applyRuleBasedPositions(network, nodes, edges);
     network = new vis.Network(container, { nodes, edges }, buildFreeDragOptions());
-    bindNetworkEvents();
+    bindNetworkEvents(network, nodes, edges);
     network.fit({ animation: true });
     return;
   }
-
   if (isHierarchicalLayoutMode(layoutMode)) {
     network = new vis.Network(container, { nodes, edges }, buildNetworkOptions(layoutMode));
     network.once("afterDrawing", () => {
       const ids = nodes.getIds();
       const positions = network.getPositions(ids);
-      const updates = ids.map((id) => ({
-        id,
-        x: positions[id]?.x,
-        y: positions[id]?.y,
-        fixed: false,
-      }));
+      const updates = ids.map((id) => ({ id, x: positions[id]?.x, y: positions[id]?.y, fixed: false }));
       nodes.update(updates);
-
       network.destroy();
       network = new vis.Network(container, { nodes, edges }, buildFreeDragOptions());
-      bindNetworkEvents();
+      bindNetworkEvents(network, nodes, edges);
       network.fit({ animation: true });
     });
     return;
   }
-
   network = new vis.Network(container, { nodes, edges }, buildNetworkOptions(layoutMode));
-  bindNetworkEvents();
+  bindNetworkEvents(network, nodes, edges);
   network.once("afterDrawing", () => {
-    if (layoutMode === "circle") {
-      applyCirclePositions();
-    } else {
-      network.fit({ animation: true });
-    }
+    if (layoutMode === "circle") applyCirclePositions(network, nodes);
+    else network.fit({ animation: true });
   });
 }
 
 function renderGraph() {
   try {
     collapsedNodes = new Set();
+    collapsedSubgraphs = new Map();
+    highlightedNodeId = null;
     parsedGraph = parseDot(currentDotText);
     const { visNodes, visEdges } = toVisData(parsedGraph);
-
     nodes = new vis.DataSet(visNodes);
     edges = new vis.DataSet(visEdges);
-    applyNodeTextMode();
-    cacheOriginalStyles();
+    applyNodeTextMode(nodes);
+    cacheOriginalStyles(nodes, edges);
     createOrResetNetwork(layoutSelect.value);
-
+    subGraphs = [];
+    currentSubgraphLevel = 0;
+    displaySubgraphIndex = -1;
     setStatus(`渲染成功：${visNodes.length} 个节点，${visEdges.length} 条边。`);
+    updateSwapButton();
   } catch (err) {
     setStatus(`渲染失败：${err.message}`, true);
     console.error(err);
@@ -1009,9 +640,337 @@ function renderGraph() {
 
 function applyLayout() {
   if (!network) return;
-  updateTransientHighlight([]);
   createOrResetNetwork(layoutSelect.value);
   setStatus(`已应用布局：${layoutSelect.options[layoutSelect.selectedIndex].text}`);
+}
+
+function getUpstreamNodes(centerId, maxLevels, edgeDataSet) {
+  const result = new Set([centerId]);
+  const queue = [{ id: centerId, level: 0 }];
+  const visited = new Map([[centerId, 0]]);
+  while (queue.length > 0) {
+    const { id, level } = queue.shift();
+    if (level >= maxLevels) continue;
+    const nextLevel = level + 1;
+    for (const edge of edgeDataSet.get()) {
+      if (String(edge.to) === String(id) && !visited.has(String(edge.from))) {
+        const fromId = String(edge.from);
+        visited.set(fromId, nextLevel);
+        result.add(fromId);
+        queue.push({ id: fromId, level: nextLevel });
+      }
+    }
+  }
+  return result;
+}
+
+function getDownstreamNodes(centerId, maxLevels, edgeDataSet) {
+  const result = new Set([centerId]);
+  const queue = [{ id: centerId, level: 0 }];
+  const visited = new Map([[centerId, 0]]);
+  while (queue.length > 0) {
+    const { id, level } = queue.shift();
+    if (level >= maxLevels) continue;
+    const nextLevel = level + 1;
+    for (const edge of edgeDataSet.get()) {
+      if (String(edge.from) === String(id) && !visited.has(String(edge.to))) {
+        const toId = String(edge.to);
+        visited.set(toId, nextLevel);
+        result.add(toId);
+        queue.push({ id: toId, level: nextLevel });
+      }
+    }
+  }
+  return result;
+}
+
+function updateExtractButton() {
+  if (!extractBtn || !selectedSubgraphNode) {
+    if (extractBtn) {
+      extractBtn.disabled = true;
+      extractBtn.style.opacity = "0.5";
+    }
+    if (subgraphInfo) subgraphInfo.textContent = "点击节点后提取";
+    return;
+  }
+  
+  let edgeDataSet = edges;
+  let nodeText = "主图";
+  
+  if (nodes.get(selectedSubgraphNode)) {
+    edgeDataSet = edges;
+    nodeText = "主图";
+  } else {
+    for (let i = 0; i < subGraphs.length; i++) {
+      if (subGraphs[i] && subGraphs[i].nodes && subGraphs[i].nodes.get(selectedSubgraphNode)) {
+        edgeDataSet = subGraphs[i].edges;
+        nodeText = "子图" + (i + 1);
+        break;
+      }
+    }
+  }
+  
+  const maxUp = getMaxUpstreamLevel(selectedSubgraphNode, edgeDataSet);
+  const maxDown = getMaxDownstreamLevel(selectedSubgraphNode, edgeDataSet);
+  subUpInput.value = maxUp;
+  subDownInput.value = maxDown;
+  if (subgraphInfo) subgraphInfo.textContent = `已选：${selectedSubgraphNode}（上游${maxUp}层，下游${maxDown}层）${nodeText !== "主图" ? "-"+nodeText : ""}`;
+  extractBtn.disabled = false;
+  extractBtn.style.opacity = "1";
+}
+
+function extractSubgraph(centerId, level) {
+  const currentEdge = level === 0 ? edges : subGraphs[level - 1].edges;
+  const currentNodes = level === 0 ? nodes : subGraphs[level - 1].nodes;
+  const upLevel = parseInt(subUpInput.value) || 0;
+  const downLevel = parseInt(subDownInput.value) || 0;
+  const upNodes = getUpstreamNodes(centerId, upLevel, currentEdge);
+  const downNodes = getDownstreamNodes(centerId, downLevel, currentEdge);
+  const selectedNodes = new Set([...upNodes, ...downNodes]);
+  const subgraphNodes = [];
+  for (const id of selectedNodes) {
+    const node = currentNodes.get(id);
+    if (node) subgraphNodes.push({ ...node });
+  }
+  const subgraphEdges = [];
+  for (const edge of currentEdge.get()) {
+    if (selectedNodes.has(String(edge.from)) && selectedNodes.has(String(edge.to))) {
+      subgraphEdges.push({ ...edge });
+    }
+  }
+  const nodeCount = subgraphNodes.length;
+  const edgeCount = subgraphEdges.length;
+  if (subgraphInfo) subgraphInfo.textContent = `子图：${nodeCount}节点，${edgeCount}边`;
+
+  const subContainer = document.getElementById("subgraphNetwork");
+  const subNodesData = new vis.DataSet(subgraphNodes);
+  const subEdgesData = new vis.DataSet(subgraphEdges);
+
+  if (subGraphs[level]) {
+    subGraphs[level].network.destroy();
+  }
+  subGraphs[level] = { nodes: subNodesData, edges: subEdgesData, network: null };
+  const subNetwork = new vis.Network(subContainer, { nodes: subNodesData, edges: subEdgesData }, buildFreeDragOptions());
+  subNetwork.subgraphIndex = level;
+  subGraphs[level].network = subNetwork;
+  subGraphs[level].centerId = centerId;
+  subGraphs[level].level = level;
+
+  bindNetworkEvents(subNetwork, subNodesData, subEdgesData);
+
+  currentSubgraphLevel = level;
+
+  setStatus(`已提取子图 ${level + 1}：${centerId}相关${nodeCount}节点`);
+  updateSwapButton();
+}
+
+function showCustomContextMenu(x, y, forceNodeId, level = 0) {
+  let nodeId = forceNodeId;
+  
+  if (!nodeId) {
+    const net = level === 0 ? network : subGraphs[level - 1]?.network;
+    if (net) {
+      const sel = net.getSelection();
+      if (sel.nodes && sel.nodes.length > 0) {
+        nodeId = sel.nodes[0];
+      }
+    }
+  }
+  
+  if (!nodeId) return;
+  
+  if (x === 0 && y === 0) {
+    const net = level === 0 ? network : subGraphs[level - 1]?.network;
+    if (net) {
+      const pos = net.getPositions([nodeId]);
+      if (pos[nodeId]) {
+        const canvas = net.canvas.frame.canvas;
+        const bounds = net.getBoundingBox();
+        x = canvas.width / 2 + pos[nodeId].x - bounds.left;
+        y = canvas.height / 2 + pos[nodeId].y - bounds.top;
+      }
+    }
+  }
+  
+  selectedSubgraphNode = nodeId;
+  updateExtractButton();
+  
+  const currentEdge = level === 0 ? edges : subGraphs[level - 1].edges;
+  const currentNodes = level === 0 ? nodes : subGraphs[level - 1].nodes;
+  
+  const maxUp = getMaxUpstreamLevel(nodeId, currentEdge);
+  const maxDown = getMaxDownstreamLevel(nodeId, currentEdge);
+  subUpInput.value = maxUp;
+  subDownInput.value = maxDown;
+  
+  if (subgraphInfo) subgraphInfo.textContent = `选择：${nodeId}（上游${maxUp}层，下游${maxDown}层）- 子图${level + 1}`;
+  
+  const menu = document.createElement("div");
+  menu.id = "contextMenu";
+  menu.style.cssText = `position:fixed;left:${x}px;top:${y}px;background:#fff;border:1px solid #ccc;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.15);z-index:10000;min-width:120px;padding:4px 0;`;
+  
+  const item = document.createElement("div");
+  item.textContent = `提取子图 ${level + 1}`;
+  item.style.cssText = "padding:8px 16px;cursor:pointer;font-size:13px;color:#333;";
+  item.onmouseenter = () => item.style.background = "#f0f0f0";
+  item.onmouseleave = () => item.style.background = "transparent";
+  item.onclick = () => {
+    const m = document.getElementById("contextMenu");
+    if (m) m.remove();
+    extractSubgraph(nodeId, level);
+  };
+  menu.appendChild(item);
+  
+  document.body.appendChild(menu);
+  
+  const closeMenu = (e) => {
+    const m = document.getElementById("contextMenu");
+    if (m && !m.contains(e.target)) {
+      m.remove();
+      document.removeEventListener("click", closeMenu);
+    }
+  };
+  setTimeout(() => document.addEventListener("click", closeMenu), 100);
+}
+
+function getMaxUpstreamLevel(centerId, edgeDataSet) {
+  const visited = new Map([[centerId, 0]]);
+  let maxLevel = 0;
+  const queue = [{ id: centerId, level: 0 }];
+  while (queue.length > 0) {
+    const { id, level } = queue.shift();
+    for (const edge of edgeDataSet.get()) {
+      if (String(edge.to) === String(id) && !visited.has(String(edge.from))) {
+        const fromId = String(edge.from);
+        visited.set(fromId, level + 1);
+        maxLevel = Math.max(maxLevel, level + 1);
+        queue.push({ id: fromId, level: level + 1 });
+      }
+    }
+  }
+  return maxLevel;
+}
+
+function getMaxDownstreamLevel(centerId, edgeDataSet) {
+  const visited = new Map([[centerId, 0]]);
+  let maxLevel = 0;
+  const queue = [{ id: centerId, level: 0 }];
+  while (queue.length > 0) {
+    const { id, level } = queue.shift();
+    for (const edge of edgeDataSet.get()) {
+      if (String(edge.from) === String(id) && !visited.has(String(edge.to))) {
+        const toId = String(edge.to);
+        visited.set(toId, level + 1);
+        maxLevel = Math.max(maxLevel, level + 1);
+        queue.push({ id: toId, level: level + 1 });
+      }
+    }
+  }
+  return maxLevel;
+}
+
+function updateSwapButton() {
+  const availableSubgraphs = subGraphs.filter(sg => sg && sg.nodes && sg.nodes.length > 0).length;
+  if (availableSubgraphs > 0) {
+    swapBtn.disabled = false;
+    swapBtn.style.opacity = "1";
+    
+    let currentLabel, targetLabel;
+    if (swapped) {
+      currentLabel = "子图1";
+      targetLabel = "主图";
+    } else {
+      currentLabel = "主图";
+      targetLabel = "子图1";
+    }
+    swapBtn.textContent = `切换 ${currentLabel}/${targetLabel}`;
+    
+    if (subGraphTitle) {
+      if (swapped) {
+        subGraphTitle.textContent = "主图预览";
+      } else {
+        subGraphTitle.textContent = "子图 1 预览";
+      }
+    }
+  } else {
+    swapBtn.disabled = true;
+    swapBtn.style.opacity = "0.5";
+    swapBtn.textContent = "切换主图/子图";
+    if (subGraphTitle) subGraphTitle.textContent = "子图预览";
+  }
+}
+
+function swapNetworks() {
+  if (!subGraphs[0] || !subGraphs[0].network) {
+    setStatus("请先提取子图后再切换", true);
+    return;
+  }
+  
+  swapped = !swapped;
+  
+  if (swapped) {
+    displaySubgraphIndex = 0;
+    const mainContainer = document.getElementById("network");
+    const subContainer = document.getElementById("subgraphNetwork");
+    
+    if (network) {
+      network.destroy();
+      network = null;
+    }
+    
+    if (subGraphs[0].network) {
+      subGraphs[0].network.destroy();
+      subGraphs[0].network = null;
+    }
+    
+    const newMainNetwork = new vis.Network(mainContainer, { nodes: subGraphs[0].nodes, edges: subGraphs[0].edges }, buildFreeDragOptions());
+    newMainNetwork.subgraphIndex = -1;
+    network = newMainNetwork;
+    bindNetworkEvents(network, subGraphs[0].nodes, subGraphs[0].edges);
+    
+    const newSubNetwork = new vis.Network(subContainer, { nodes: nodes, edges: edges }, buildFreeDragOptions());
+    newSubNetwork.subgraphIndex = 0;
+    subGraphs[0].network = newSubNetwork;
+    bindNetworkEvents(newSubNetwork, nodes, edges);
+    
+  } else {
+    displaySubgraphIndex = -1;
+    const mainContainer = document.getElementById("network");
+    const subContainer = document.getElementById("subgraphNetwork");
+    
+    if (network) {
+      network.destroy();
+      network = null;
+    }
+    
+    const oldSubNet = subGraphs[0].network;
+    if (oldSubNet) {
+      oldSubNet.destroy();
+      subGraphs[0].network = null;
+    }
+    
+    const newMainNetwork = new vis.Network(mainContainer, { nodes: nodes, edges: edges }, buildFreeDragOptions());
+    network = newMainNetwork;
+    bindNetworkEvents(network, nodes, edges);
+    
+    const newSubNetwork = new vis.Network(subContainer, { nodes: subGraphs[0].nodes, edges: subGraphs[0].edges }, buildFreeDragOptions());
+    newSubNetwork.subgraphIndex = 0;
+    subGraphs[0].network = newSubNetwork;
+    bindNetworkEvents(newSubNetwork, subGraphs[0].nodes, subGraphs[0].edges);
+  }
+  
+  if (network) network.fit({ animation: true });
+  if (subGraphs[0] && subGraphs[0].network) subGraphs[0].network.fit({ animation: true });
+  
+  updateSwapButton();
+  setStatus(swapped ? "已切换：子图在中间" : "已切换：主图在中间");
+}
+
+function doExtractSubgraph() {
+  if (selectedSubgraphNode) {
+    const level = currentSubgraphLevel;
+    extractSubgraph(selectedSubgraphNode, level);
+  }
 }
 
 fileInput.addEventListener("change", async (event) => {
@@ -1030,131 +989,14 @@ renderBtn.addEventListener("click", renderGraph);
 applyLayoutBtn.addEventListener("click", applyLayout);
 toggleNodeTextBtn.addEventListener("click", () => {
   nodeTextMode = nodeTextMode === "label" ? "id" : "label";
-  applyNodeTextMode();
+  applyNodeTextMode(nodes);
 });
 
-saveImageBtn.addEventListener("click", () => {
-  if (!network) {
-    setStatus("请先渲染图形后再保存", true);
-    return;
-  }
-  
-  const canvas = network.canvas.frame.canvas;
-  const link = document.createElement("a");
-  link.download = "ladder-graph-" + Date.now() + ".png";
-  link.href = canvas.toDataURL("image/png");
-  link.click();
-  
-  setStatus("图片已保存");
-});
-
-toggle3DBtn.addEventListener("click", () => {
-  if (!network) {
-    setStatus("请先渲染图形后再切换", true);
-    return;
-  }
-
-  is3DMode = !is3DMode;
-
-  if (is3DMode) {
-    const allNodes = nodes.get();
-    const nodeUpdates = allNodes.map(node => {
-      return {
-        id: node.id,
-        shape: "dot",
-        size: 30,
-        font: {
-          color: "#ffffff",
-          background: "rgba(0,0,0,0.7)",
-          strokeWidth: 2,
-          strokeColor: "#000000",
-          face: "Avenir Next, PingFang SC, Noto Sans SC, sans-serif",
-          size: 14
-        },
-        color: {
-          background: node.color?.background || "#8497b0",
-          border: node.color?.border || "#5a0010",
-          highlight: { background: "#e60023", border: "#5a0010" }
-        },
-        shadow: {
-          enabled: true,
-          color: "rgba(0,0,0,0.4)",
-          size: 10,
-          x: 4,
-          y: 4
-        }
-      };
-    });
-    nodes.update(nodeUpdates);
-
-    network.setOptions({
-      physics: {
-        enabled: true,
-        solver: "forceAtlas2Based",
-        forceAtlas2Based: {
-          gravitationalConstant: -50,
-          centralGravity: 0.01,
-          springLength: 150,
-          springConstant: 0.08,
-          damping: 0.4
-        },
-        stabilization: { iterations: 200 }
-      },
-      interaction: {
-        dragNodes: true,
-        dragView: true,
-        zoomView: true,
-        hover: true
-      }
-    });
-
-    network.once("stabilizationIterationsDone", () => {
-      network.setOptions({ physics: { enabled: false } });
-    });
-
-  } else {
-    const allNodes = nodes.get();
-    const nodeUpdates = allNodes.map(node => {
-      const original = originalNodeStyle.get(node.id) || {};
-      return {
-        id: node.id,
-        shape: node.originalShape || node.shape || "ellipse",
-        size: node.originalSize,
-        widthConstraint: node.originalWidthConstraint,
-        heightConstraint: node.originalHeightConstraint,
-        font: original.font || { face: "Avenir Next, PingFang SC, Noto Sans SC, sans-serif", size: 14, color: "#111111" },
-        color: original.color || node.color,
-        borderWidth: original.borderWidth || 1.5,
-        shadow: { enabled: false }
-      };
-    });
-    nodes.update(nodeUpdates);
-
-    network.setOptions({
-      physics: false,
-      layout: { improvedLayout: false },
-      interaction: {
-        dragNodes: true,
-        dragView: true,
-        zoomView: true,
-        multiselect: false,
-        selectConnectedEdges: false,
-        hoverConnectedEdges: false
-      }
-    });
-
-    applyRuleBasedPositions();
-  }
-
-  network.fit({ animation: true });
-
-  if (mode3DInfo) {
-    mode3DInfo.textContent = is3DMode ? "当前模式：3D 球形" : "当前模式：2D 平铺";
-  }
-  toggle3DBtn.textContent = is3DMode ? "切换为 2D 视图" : "转换为 3D 球形";
-
-  setStatus(is3DMode ? "已切换为 3D 球形视图（可拖拽旋转）" : "已切换为 2D 平铺视图");
-});
+if (extractBtn) {
+  extractBtn.addEventListener("click", doExtractSubgraph);
+  updateExtractButton();
+}
+if (swapBtn) swapBtn.addEventListener("click", swapNetworks);
 
 updateNodeTextModeInfo();
 renderGraph();

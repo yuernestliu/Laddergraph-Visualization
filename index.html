@@ -4,183 +4,65 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Graph 可视化交互台</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/vis-network/styles/vis-network.min.css"
-    />
+    <link rel="stylesheet" href="https://unpkg.com/vis-network/styles/vis-network.min.css" />
     <style>
-      :root {
-        --bg: #f4f1ea;
-        --panel: #fffdf8;
-        --ink: #202124;
-        --muted: #6b7280;
-        --line: #d9d2c3;
-        --accent: #0b7285;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        font-family: "Avenir Next", "PingFang SC", "Noto Sans SC", sans-serif;
-        color: var(--ink);
-        background:
-          radial-gradient(circle at 10% 0%, #e8f2f4 0%, transparent 35%),
-          radial-gradient(circle at 90% 100%, #f8ead6 0%, transparent 40%),
-          var(--bg);
-      }
-
-      .app {
-        max-width: 1280px;
-        margin: 24px auto;
-        padding: 0 16px;
-        display: grid;
-        grid-template-columns: 360px 1fr;
-        gap: 16px;
-      }
-
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 14px;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
-      }
-
-      h1 {
-        margin: 0 0 12px;
-        font-size: 20px;
-      }
-
-      h2 {
-        margin: 0 0 8px;
-        font-size: 15px;
-      }
-
-      .section {
-        margin-bottom: 14px;
-      }
-
-      .row {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-
-      select,
-      button,
-      input[type="file"] {
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 8px 10px;
-        background: #fff;
-        color: var(--ink);
-      }
-
-      button {
-        cursor: pointer;
-        border-color: #b5d7dd;
-      }
-
-      button.primary {
-        background: var(--accent);
-        border-color: var(--accent);
-        color: white;
-      }
-
-      #network {
-        height: min(82vh, 900px);
-        background: white;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-      }
-
-      .hint {
-        font-size: 12px;
-        color: var(--muted);
-        margin-top: 6px;
-      }
-
-      #status {
-        font-size: 13px;
-        color: var(--muted);
-      }
-
-      @media (max-width: 1000px) {
-        .app {
-          grid-template-columns: 1fr;
-        }
-
-        #network {
-          height: 68vh;
-        }
-      }
+      :root { --bg: #f4f1ea; --panel: #fffdf8; --ink: #202124; --muted: #6b7280; --line: #d9d2c3; --accent: #0b7285; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: "Avenir Next", "PingFang SC", sans-serif; color: var(--ink); background: radial-gradient(circle at 10% 0%, #e8f2f4 0%, transparent 35%), linear-gradient(to bottom, var(--bg)), #e8e4db; min-height: 100vh; }
+      .app { display: grid; grid-template-columns: 300px 1fr 300px; gap: 12px; padding: 12px; max-width: 100vw; }
+      .panel { background: var(--panel); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: auto; }
+      h1 { font-size: 22px; margin: 0 0 16px; }
+      h2 { font-size: 15px; margin: 0 0 10px; }
+      .section { margin-bottom: 14px; }
+      .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      select, button, input { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: #fff; }
+      button { cursor: pointer; border-color: #b5d7dd; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+      #network, #subgraphNetwork { height: 85vh; background: #fffdf8; border: 1px solid var(--line); border-radius: 8px; }
+      .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+      #status { font-size: 13px; color: var(--muted); }
+      @media (max-width: 1200px) { .app { grid-template-columns: 280px 1fr; } #subgraphNetwork { display: none; } }
+      @media (max-width: 800px) { .app { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
     <main class="app">
       <section class="panel">
         <h1>Graph 互动可视化</h1>
-
         <div class="section">
           <h2>1) 导入 DOT</h2>
-          <div class="row">
-            <input id="fileInput" type="file" accept=".gv,.dot,.txt" />
-            <button id="renderBtn" class="primary">渲染 Graph</button>
-          </div>
-          <p class="hint">导入后可直接渲染；当前不在左侧显示 DOT 文本内容。</p>
+          <div class="row"><input id="fileInput" type="file" accept=".gv,.dot,.txt" /><button id="renderBtn" class="primary">渲染</button></div>
           <p id="status">等待渲染</p>
         </div>
-
         <div class="section">
           <h2>2) 布局选项</h2>
           <div class="row">
             <select id="layoutSelect">
-              <option value="ruleBased">默认分层（组成关系递推）</option>
-              <option value="fromDot">层级布局（按 rankdir）</option>
-              <option value="hierarchicalTB">层级布局（上->下）</option>
-              <option value="hierarchicalLR">层级布局（左->右）</option>
-              <option value="force">力导向布局</option>
-              <option value="circle">圆形布局</option>
+              <option value="ruleBased">默认分层</option>
+              <option value="fromDot">层级布局</option>
+              <option value="hierarchicalTB">层级（上->下）</option>
+              <option value="hierarchicalLR">层级（左->右）</option>
+              <option value="force">力导向</option>
+              <option value="circle">圆形</option>
             </select>
-            <button id="applyLayoutBtn">应用布局</button>
+            <button id="applyLayoutBtn">应用</button>
           </div>
-          <p class="hint">点节点后：节点变红，出边红色、入边绿色；点击空白后恢复原色。</p>
         </div>
-
         <div class="section">
-          <h2>3) 节点文本显示</h2>
-          <div class="row">
-            <button id="toggleNodeTextBtn">切换为显示 ID</button>
-          </div>
-          <p id="nodeTextModeInfo" class="hint">当前显示：Label</p>
+          <h2>3) 节点文本</h2>
+          <div class="row"><button id="toggleNodeTextBtn">切换显示</button></div>
+          <p id="nodeTextModeInfo" class="hint">显示：Label</p>
         </div>
-
         <div class="section">
-          <h2>4) 保存图片</h2>
-          <div class="row">
-            <button id="saveImageBtn" class="primary">保存为 PNG</button>
-          </div>
-          <p class="hint">将当前图形保存为PNG图片文件</p>
-        </div>
-
-        <div class="section">
-          <h2>5) 三维视图</h2>
-          <div class="row">
-            <button id="toggle3DBtn" class="primary">转换为 3D 球形</button>
-          </div>
-          <p id="3dModeInfo" class="hint">当前模式：2D 平铺</p>
+          <h2>4) 子图提取</h2>
+          <div class="row"><label>上游：</label><input id="subUp" type="number" min="0" value="0" style="width:50px" /><label>下游：</label><input id="subDown" type="number" min="0" value="0" style="width:50px" /></div>
+          <div class="row" style="margin-top:8px"><button id="extractBtn" class="primary" disabled style="opacity:0.5">提取子图</button><button id="swapBtn" class="primary">切换主图/右图</button></div>
+          <p id="subgraphInfo" class="hint">右键点击节点提取</p>
         </div>
       </section>
-
-      <section class="panel">
-        <div id="network"></div>
-      </section>
+      <section class="panel"><div id="network"></div></section>
+      <section class="panel"><h2 id="subGraphTitle">子图预览</h2><div id="subgraphNetwork" style="height:85vh;background:#fffdf8;border:1px solid #d9d2c3;border-radius:8px;"></div></section>
     </main>
-
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
     <script src="./app.js"></script>
   </body>
