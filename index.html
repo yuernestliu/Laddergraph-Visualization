@@ -333,7 +333,33 @@
           height: 68vh;
         }
       }
-    </style>
+          /* Custom context menu item styles */
+      #customContextMenu ul li {
+        padding: 4px 8px;
+        cursor: pointer;
+        color: #232;
+        border-radius: 3px;
+        transition: background 0.14s;
+        user-select: none;
+      }
+      #customContextMenu ul li.selected {
+        background: #bee6fc !important;
+        color: #165699 !important;
+        font-weight: bold;
+      }
+      #customContextMenu ul li:hover {
+        background: #e2eaff;
+      }
+      #customContextMenu ul li.hidden {
+        color: #b3b3b3;
+        background: #f6f6f8;
+        text-decoration: line-through;
+        cursor: not-allowed;
+      }
+      #customContextMenu ul li:active:not(.hidden) {
+        background: #cbd4eb;
+      }
+</style>
   </head>
   <body>
     <main class="app">
