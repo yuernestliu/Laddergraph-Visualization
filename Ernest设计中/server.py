@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import json
-import shutil
-import subprocess
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from backend.graphviz_render_service import (
+    DEFAULT_DOT_BIN,
+    GraphvizBinaryNotFoundError,
+    GraphvizRenderError,
+    render_dot_to_svg,
+)
 
 ROOT = Path(__file__).resolve().parent
 HOST = "127.0.0.1"
 PORT = 8000
-DOT_BIN = shutil.which("dot") or "/opt/homebrew/bin/dot"
 
 
 class GraphvizHandler(SimpleHTTPRequestHandler):
@@ -43,22 +46,23 @@ class GraphvizHandler(SimpleHTTPRequestHandler):
             )
             return
 
-        if not Path(DOT_BIN).exists():
+        try:
+            render_result = render_dot_to_svg(dot_source, engine, dot_bin=DEFAULT_DOT_BIN, cwd=str(ROOT))
+        except GraphvizBinaryNotFoundError as exc:
             self._write_json(
                 HTTPStatus.INTERNAL_SERVER_ERROR,
-                {"error": f"未找到 Graphviz `dot` 可执行文件：{DOT_BIN}"},
+                {"error": f"调用 Graphviz 失败：{exc}"},
             )
             return
-
-        try:
-            result = subprocess.run(
-                [DOT_BIN, f"-K{engine}", "-Tsvg"],
-                input=dot_source,
-                text=True,
-                capture_output=True,
-                check=False,
-                cwd=str(ROOT),
+        except GraphvizRenderError as exc:
+            self._write_json(
+                HTTPStatus.BAD_REQUEST,
+                {
+                    "error": "Graphviz 渲染失败。",
+                    "details": str(exc),
+                },
             )
+            return
         except Exception as exc:
             self._write_json(
                 HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -66,22 +70,11 @@ class GraphvizHandler(SimpleHTTPRequestHandler):
             )
             return
 
-        if result.returncode != 0:
-            self._write_json(
-                HTTPStatus.BAD_REQUEST,
-                {
-                    "error": "Graphviz 渲染失败。",
-                    "details": (result.stderr or "").strip(),
-                },
-            )
-            return
-
-        svg_body = result.stdout.encode("utf-8")
+        svg_body = render_result.svg_text.encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "image/svg+xml; charset=utf-8")
         self.send_header("Content-Length", str(len(svg_body)))
         self.send_header("X-Graphviz-Engine", engine)
-        self.send_header("X-Graphviz-Stderr", (result.stderr or "").strip())
         self.end_headers()
         self.wfile.write(svg_body)
 

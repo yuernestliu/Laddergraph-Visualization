@@ -68,6 +68,65 @@
         font-size: 12px;
       }
 
+      .range-control {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        width: 100%;
+      }
+
+      .range-control input[type="range"] {
+        flex: 1 1 auto;
+        min-width: 120px;
+        accent-color: var(--accent);
+      }
+
+      .range-control .range-value {
+        flex: 0 0 auto;
+        min-width: 52px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .component-size-control {
+        display: grid;
+        grid-template-columns: auto minmax(54px, 76px) auto;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .component-size-control input[type="number"] {
+        width: 100%;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stepper-btn {
+        min-width: 32px;
+        padding: 6px 8px;
+      }
+
+      .quick-picks {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+      }
+
+      .quick-picks button {
+        padding: 4px 7px;
+        font-size: 12px;
+        border-radius: 999px;
+      }
+
+      .quick-picks button.active {
+        color: #fff;
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+
       h1 {
         margin: 0 0 8px;
         font-size: 18px;
@@ -100,6 +159,11 @@
 
       .tab-strip[hidden] {
         display: none;
+      }
+
+      .component-select {
+        width: min(420px, 100%);
+        margin-bottom: 6px;
       }
 
       .tab-button {
@@ -226,6 +290,49 @@
         position: relative;
       }
 
+      .graph-workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 10px;
+        align-items: stretch;
+      }
+
+      .node-detail-panel {
+        min-height: min(84vh, 980px);
+        max-height: min(84vh, 980px);
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .node-detail-title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .node-detail-meta {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .node-detail-body {
+        margin: 0;
+        padding-top: 8px;
+        border-top: 1px solid var(--line);
+        overflow: auto;
+        font-size: 15px;
+        line-height: 1.75;
+        word-break: break-all;
+      }
+
       .overlay-controls {
         position: absolute;
         top: 10px;
@@ -324,6 +431,15 @@
         #network {
           height: 68vh;
         }
+
+        .graph-workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .node-detail-panel {
+          min-height: 180px;
+          max-height: 260px;
+        }
       }
     </style>
   </head>
@@ -372,32 +488,57 @@
               </select>
             </div>
           </div>
+
+          <div class="section">
+            <h2>最小网络规模</h2>
+            <div class="component-size-control">
+              <button id="minComponentSizeDownBtn" class="stepper-btn" type="button" aria-label="减小 M">-</button>
+              <input id="minComponentSizeInput" type="number" min="2" step="1" value="2" inputmode="numeric" />
+              <button id="minComponentSizeUpBtn" class="stepper-btn" type="button" aria-label="增大 M">+</button>
+            </div>
+            <div class="quick-picks" aria-label="常用最小网络规模">
+              <button type="button" data-min-component-size="2">&ge;2</button>
+              <button type="button" data-min-component-size="3">&ge;3</button>
+              <button type="button" data-min-component-size="5">&ge;5</button>
+              <button type="button" data-min-component-size="10">&ge;10</button>
+              <button type="button" data-min-component-size="20">&ge;20</button>
+            </div>
+            <p id="minComponentSizeInfo" class="hint">加载图后可设置。</p>
+          </div>
         </div>
       </section>
 
       <section class="panel">
         <div id="graphTabs" class="tab-strip" hidden></div>
+        <select id="graphComponentSelect" class="component-select" hidden aria-label="选择网络"></select>
         <div class="graph-meta">
           <p id="graphTabsInfo" class="hint">当前显示：全图</p>
           <p id="status" hidden></p>
         </div>
-        <div class="network-shell">
-          <div class="overlay-controls">
-            <div class="zoom-controls">
-              <button id="zoomInBtn" type="button" aria-label="放大">+</button>
-              <button id="zoomOutBtn" type="button" aria-label="缩小">-</button>
-              <button id="fitViewBtn" type="button" class="fit-btn" aria-label="适中">适中</button>
-            </div>
-            <div class="layer-controls">
-              <div class="row">
-                <button id="layerDepthUpBtn" class="compact-btn" type="button">深1层</button>
-                <button id="layerDepthDownBtn" class="compact-btn" type="button">浅1层</button>
-                <button id="layerDepthAutoBtn" class="compact-btn" type="button">合适层级</button>
-                <button id="layerDepthAllBtn" class="compact-btn" type="button">全部层</button>
+        <div class="graph-workspace">
+          <div class="network-shell">
+            <div class="overlay-controls">
+              <div class="zoom-controls">
+                <button id="zoomInBtn" type="button" aria-label="放大">+</button>
+                <button id="zoomOutBtn" type="button" aria-label="缩小">-</button>
+                <button id="fitViewBtn" type="button" class="fit-btn" aria-label="适中">适中</button>
+              </div>
+              <div class="layer-controls">
+                <div class="row">
+                  <button id="layerDepthUpBtn" class="compact-btn" type="button">深1层</button>
+                  <button id="layerDepthDownBtn" class="compact-btn" type="button">浅1层</button>
+                  <button id="layerDepthAutoBtn" class="compact-btn" type="button">合适层级</button>
+                  <button id="layerDepthAllBtn" class="compact-btn" type="button">全部层</button>
+                </div>
               </div>
             </div>
+            <div id="network"></div>
           </div>
-          <div id="network"></div>
+          <aside class="node-detail-panel" aria-label="节点详情">
+            <h2 id="nodeDetailTitle" class="node-detail-title">未选择节点</h2>
+            <p id="nodeDetailMeta" class="node-detail-meta">点击图中的节点查看 CSV 详情。</p>
+            <p id="nodeDetailBody" class="node-detail-body" hidden></p>
+          </aside>
         </div>
       </section>
     </main>

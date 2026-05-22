@@ -8,23 +8,28 @@ const HIDDEN_NODE_IDS = new Set(["-1"]);
 const SIZE_MODE_CONFIG = {
   fixed: {
     label: "固定",
-    diameter: () => 0.98,
+    rawWidth: () => 0.98,
+    maxWidth: 0.98,
   },
   sqrt: {
     label: "sqrt(S)",
-    diameter: (value) => Math.max(0.52, Math.min(3.6, 0.14 * Math.sqrt(Math.max(0, value)))),
+    rawWidth: (value) => 0.11 * Math.sqrt(Math.max(0, value)),
+    maxWidth: 3.6,
   },
   cbrt: {
     label: "S^(1/3)",
-    diameter: (value) => Math.max(0.52, Math.min(3.0, 0.34 * Math.cbrt(Math.max(0, value)))),
+    rawWidth: (value) => 0.3 * Math.cbrt(Math.max(0, value)),
+    maxWidth: 3.0,
   },
   log: {
     label: "log(S+1)",
-    diameter: (value) => Math.max(0.52, Math.min(2.8, 0.92 * Math.log10(Math.max(0, value) + 1))),
+    rawWidth: (value) => 0.82 * Math.log10(Math.max(0, value) + 1),
+    maxWidth: 2.8,
   },
   linear: {
     label: "S",
-    diameter: (value) => Math.max(0.52, Math.min(6.4, 0.012 * Math.max(0, value))),
+    rawWidth: (value) => 0.012 * Math.max(0, value),
+    maxWidth: 4.2,
   },
 };
 
@@ -128,9 +133,12 @@ export function isTargetNodeId(nodeId) {
 }
 
 export function isTargetNode(attrs = {}, nodeId = "") {
+  if (isTargetNodeId(nodeId)) {
+    return true;
+  }
   return (
-    isTargetNodeId(nodeId) ||
-    (isWhiteColor(attrs.fillcolor) && ["ellipse", "circle", "oval"].includes(getShapeName(attrs)))
+    isWhiteColor(attrs.fillcolor) &&
+    ["ellipse", "circle", "oval"].includes(getShapeName(attrs))
   );
 }
 
@@ -347,7 +355,6 @@ export function filterSubgraphByLayerDepth(parsed, trimmedLayerCount, layerMeta 
     (node) => (effectiveLayerMeta.levelByNodeId.get(node.id) || 0) >= clampedTrimmedLayerCount,
   );
   const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
-
   return {
     graphAttrs: parsed.graphAttrs,
     nodes: visibleNodes,
@@ -355,6 +362,71 @@ export function filterSubgraphByLayerDepth(parsed, trimmedLayerCount, layerMeta 
       (edge) => visibleNodeIds.has(edge.from) && visibleNodeIds.has(edge.to),
     ),
   };
+}
+
+export function filterSubgraphByComponentThreshold(parsed, maxComponentSizeToHide = 0) {
+  const effectiveThreshold = Math.max(
+    0,
+    Number.isFinite(maxComponentSizeToHide) ? Math.trunc(maxComponentSizeToHide) : 0,
+  );
+
+  if (effectiveThreshold <= 0 || parsed.nodes.length <= 1) {
+    return parsed;
+  }
+
+  const adjacency = new Map(parsed.nodes.map((node) => [node.id, new Set()]));
+
+  for (const edge of parsed.edges) {
+    if (!adjacency.has(edge.from) || !adjacency.has(edge.to)) continue;
+    adjacency.get(edge.from).add(edge.to);
+    adjacency.get(edge.to).add(edge.from);
+  }
+
+  const visited = new Set();
+  const keptNodeIds = new Set();
+
+  for (const node of parsed.nodes) {
+    if (visited.has(node.id)) continue;
+
+    const queue = [node.id];
+    const componentNodeIds = [];
+    visited.add(node.id);
+
+    while (queue.length) {
+      const nodeId = queue.shift();
+      componentNodeIds.push(nodeId);
+
+      for (const neighborId of adjacency.get(nodeId) || []) {
+        if (visited.has(neighborId)) continue;
+        visited.add(neighborId);
+        queue.push(neighborId);
+      }
+    }
+
+    if (componentNodeIds.length > effectiveThreshold) {
+      for (const nodeId of componentNodeIds) {
+        keptNodeIds.add(nodeId);
+      }
+    }
+  }
+
+  return {
+    graphAttrs: parsed.graphAttrs,
+    nodes: parsed.nodes.filter((node) => keptNodeIds.has(node.id)),
+    edges: parsed.edges.filter(
+      (edge) => keptNodeIds.has(edge.from) && keptNodeIds.has(edge.to),
+    ),
+  };
+}
+
+export function applyVisibleSubgraphFilters(
+  parsed,
+  trimmedLayerCount,
+  layerMeta = null,
+  maxComponentSizeToHide = 0,
+) {
+  const layeredSubgraph = filterSubgraphByLayerDepth(parsed, trimmedLayerCount, layerMeta);
+  return filterSubgraphByComponentThreshold(layeredSubgraph, maxComponentSizeToHide);
 }
 
 export function cleanId(raw) {
@@ -629,46 +701,46 @@ function buildNodeSizeContext(nodes, renderProfile, nodeSizeMode) {
   const compact = renderProfile === "overview";
   const defaultWidth = compact ? 0.58 : 0.98;
   const height = compact ? 0.24 : 0.4;
-  const metricByNodeId = new Map();
-  const diameter = getSizeModeConfig(nodeSizeMode).diameter;
+  const minWidth = compact ? 0.38 : 0.52;
+  const config = getSizeModeConfig(nodeSizeMode);
+  const rawWidthByNodeId = new Map();
+  const maxWidth = compact ? Math.min(1.8, config.maxWidth * 0.5) : config.maxWidth;
+  let maxRawWidth = Number.NEGATIVE_INFINITY;
 
-  if (nodeSizeMode === "fixed") {
-    return {
-      mode: nodeSizeMode,
-      defaultWidth,
-      height,
-      metricByNodeId,
-      diameter,
-    };
-  }
-
-  for (const node of nodes) {
-    if (!isScalableLadderNode(node.attrs || {}, node.id)) continue;
-    const metric = extractNodeMetricFromLabel(node.attrs?.label);
-    if (!Number.isFinite(metric)) continue;
-    metricByNodeId.set(node.id, metric);
+  if (nodeSizeMode !== "fixed") {
+    for (const node of nodes) {
+      if (!isScalableLadderNode(node.attrs || {}, node.id)) continue;
+      const metric = extractNodeMetricFromLabel(node.attrs?.label);
+      if (!Number.isFinite(metric)) continue;
+      const rawWidth = config.rawWidth(metric);
+      if (!Number.isFinite(rawWidth)) continue;
+      rawWidthByNodeId.set(node.id, rawWidth);
+      maxRawWidth = Math.max(maxRawWidth, rawWidth);
+    }
   }
 
   return {
     mode: nodeSizeMode,
     defaultWidth,
     height,
-    metricByNodeId,
-    diameter,
+    minWidth,
+    maxWidth,
+    rawWidthByNodeId,
+    maxRawWidth,
   };
 }
 
 function getNodeEllipseWidth(node, sizeContext) {
-  const metric = sizeContext.metricByNodeId.get(node.id);
-  if (!Number.isFinite(metric) || sizeContext.mode === "fixed") {
+  if (sizeContext.mode === "fixed") {
     return sizeContext.defaultWidth;
   }
-
-  const diameter = sizeContext.diameter(metric);
-  if (!Number.isFinite(diameter)) {
-    return sizeContext.defaultWidth;
-  }
-  return Math.max(sizeContext.height + 0.14, diameter);
+  const rawWidth = sizeContext.rawWidthByNodeId.get(node.id);
+  if (!Number.isFinite(rawWidth)) return sizeContext.defaultWidth;
+  const scale = sizeContext.maxRawWidth > sizeContext.maxWidth
+    ? sizeContext.maxWidth / sizeContext.maxRawWidth
+    : 1;
+  const width = rawWidth * scale;
+  return Math.max(sizeContext.height + 0.14, sizeContext.minWidth, width);
 }
 
 function buildRenderableNodeAttrs(node, options, sizeContext) {
@@ -756,7 +828,13 @@ export function serializeGraphToDot(parsed, options) {
   const { renderProfile, layoutMode, nodeTextMode, nodeSizeMode } = options;
   const layoutSpec = getLayoutSpec(layoutMode, renderProfile);
   const compact = renderProfile === "overview";
-  const sizeContext = buildNodeSizeContext(parsed.nodes, renderProfile, nodeSizeMode);
+  const sizeContext = buildNodeSizeContext(
+    Array.isArray(options.sizeSourceNodes) && options.sizeSourceNodes.length
+      ? options.sizeSourceNodes
+      : parsed.nodes,
+    renderProfile,
+    nodeSizeMode,
+  );
 
   const graphAttrs = {
     bgcolor: "transparent",

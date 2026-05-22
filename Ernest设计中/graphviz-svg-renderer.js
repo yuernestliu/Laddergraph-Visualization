@@ -12,10 +12,13 @@ import {
 const HIGHLIGHT_RED = "#e60023";
 const INCOMING_GREEN = "#2f9e44";
 const CENTER_NODE_COLOR = "#5a0010";
+const MIN_USER_SCALE = 0.08;
+const MAX_USER_SCALE = 24;
 
 export class GraphvizSvgRenderer {
-  constructor(container) {
+  constructor(container, options = {}) {
     this.container = container;
+    this.onSelectionChange = options.onSelectionChange || (() => {});
     this.currentSvg = null;
     this.currentViewport = null;
     this.currentSubgraph = null;
@@ -93,6 +96,8 @@ export class GraphvizSvgRenderer {
     svg.style.maxHeight = "none";
     svg.style.transformOrigin = "0 0";
     svg.style.userSelect = "none";
+    svg.style.overflow = "visible";
+    svg.setAttribute("overflow", "visible");
     if (width && height) {
       svg.setAttribute("width", `${width}`);
       svg.setAttribute("height", `${height}`);
@@ -108,6 +113,7 @@ export class GraphvizSvgRenderer {
     this.nodeTextMode = nodeTextMode;
 
     this.bindSvgGraph(svg, parsed);
+    this.expandSvgViewToContent(svg);
   }
 
   setVisibleSubgraph(parsed) {
@@ -185,8 +191,52 @@ export class GraphvizSvgRenderer {
     return { width, height };
   }
 
+  syncSvgRenderedSize(svg) {
+    const { width, height } = this.getSvgViewSizeFromElement(svg);
+    if (!width || !height) return;
+    svg.setAttribute("width", `${width}`);
+    svg.setAttribute("height", `${height}`);
+    svg.style.width = `${width}px`;
+    svg.style.height = `${height}px`;
+  }
+
+  expandSvgViewToContent(svg) {
+    let box = null;
+    try {
+      box = svg.getBBox();
+    } catch {
+      return;
+    }
+    if (!box || !box.width || !box.height) return;
+
+    const padding = this.isOverview ? 8 : 30;
+    const current = svg.viewBox?.baseVal;
+    const currentX = current?.width ? current.x : box.x;
+    const currentY = current?.height ? current.y : box.y;
+    const currentMaxX = current?.width ? current.x + current.width : box.x + box.width;
+    const currentMaxY = current?.height ? current.y + current.height : box.y + box.height;
+    const minX = Math.min(currentX, box.x - padding);
+    const minY = Math.min(currentY, box.y - padding);
+    const maxX = Math.max(currentMaxX, box.x + box.width + padding);
+    const maxY = Math.max(currentMaxY, box.y + box.height + padding);
+
+    svg.setAttribute("viewBox", `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
+    this.syncSvgRenderedSize(svg);
+  }
+
   clampScale(scale) {
-    return Math.max(0.08, Math.min(4, scale));
+    return Math.max(MIN_USER_SCALE, Math.min(MAX_USER_SCALE, scale));
+  }
+
+  getAutoFitMaxScale() {
+    if (this.isOverview) return 4;
+
+    const nodeCount = this.currentSubgraph?.nodes?.length || 0;
+    if (nodeCount <= 6) return 1.05;
+    if (nodeCount <= 12) return 1.25;
+    if (nodeCount <= 24) return 1.65;
+    if (nodeCount <= 48) return 2.4;
+    return 4;
   }
 
   applyViewport(viewport) {
@@ -213,9 +263,11 @@ export class GraphvizSvgRenderer {
       return { x: 0, y: 0, scale: 1 };
     }
 
-    const usableWidth = Math.max(40, rect.width - 28);
-    const usableHeight = Math.max(40, rect.height - 28);
-    const scale = this.clampScale(Math.min(usableWidth / width, usableHeight / height));
+    const fitPadding = this.isOverview ? 12 : 8;
+    const usableWidth = Math.max(40, rect.width - fitPadding * 2);
+    const usableHeight = Math.max(40, rect.height - fitPadding * 2);
+    const fitScale = Math.min(usableWidth / width, usableHeight / height);
+    const scale = this.clampScale(Math.min(fitScale, this.getAutoFitMaxScale()));
     return {
       x: (rect.width - width * scale) / 2,
       y: (rect.height - height * scale) / 2,
@@ -421,7 +473,10 @@ export class GraphvizSvgRenderer {
   applySelectionHighlight(nodeId) {
     this.activeSelectionNodeId = nodeId || null;
     this.resetAllHighlights();
-    if (!nodeId) return;
+    if (!nodeId) {
+      this.onSelectionChange(null);
+      return;
+    }
 
     const { upNodeDist, upEdgeDist, downNodeDist, downEdgeDist } =
       this.computeDirectionalReach(nodeId);
@@ -472,6 +527,8 @@ export class GraphvizSvgRenderer {
       }
       this.setEdgeVisual(edgeId, color, 2.8);
     }
+
+    this.onSelectionChange(nodeId);
   }
 
   decorateSplitLabelNodes() {
@@ -507,17 +564,20 @@ export class GraphvizSvgRenderer {
           ? { top: "", inner: String(nodeId) }
           : splitDisplayLabel(nodeMeta.attrs?.label || nodeId);
 
+      const innerFontSize = isTarget ? 15 : 16;
+      const topFontSize = isTarget ? 16 : 17;
+
       if (parts.inner) {
         const innerLabel = this.createSvgText(
           centerX,
-          centerY + 4,
+          centerY + innerFontSize * 0.36,
           parts.inner,
           "codex-split-label",
           {
-            fontSize: 11,
+            fontSize: innerFontSize,
             fill: "#111111",
             stroke: "#ffffff",
-            strokeWidth: 3.4,
+            strokeWidth: isTarget ? 4 : 4.4,
           },
         );
         innerLabel.setAttribute("data-label-role", "inner");
@@ -525,11 +585,11 @@ export class GraphvizSvgRenderer {
       }
 
       if (parts.top) {
-        const topLabel = this.createSvgText(centerX, box.y - 5, parts.top, "codex-split-label", {
-          fontSize: 12,
+        const topLabel = this.createSvgText(centerX, box.y - 6, parts.top, "codex-split-label", {
+          fontSize: topFontSize,
           fill: "#111111",
           stroke: "rgba(255,255,255,0.92)",
-          strokeWidth: 3.6,
+          strokeWidth: isTarget ? 4.2 : 4.6,
         });
         topLabel.setAttribute("data-label-role", "top");
         topLabel.setAttribute("dominant-baseline", "auto");

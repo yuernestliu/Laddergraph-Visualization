@@ -1,0 +1,14 @@
+cd /Users/ernest/Downloads/6-Codex项目/Laddergraph可视化/设计中
+python3 server.py
+
+
+
+然后浏览器打开：
+http://127.0.0.1:8000/
+
+
+说明：
+
+1. 页面打开后会默认读取同目录下的 default.gv 作为展示图。
+2. 以后拿来实验的 .gv 文件统一放在 graphs/ 目录里，再通过网页左侧“导入 DOT”按钮选择。
+3. 不要直接双击 index.html；现在页面还需要本地 Graphviz 渲染接口 `/api/render`，所以必须用 `python3 server.py` 启动。
