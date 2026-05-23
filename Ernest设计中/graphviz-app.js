@@ -22,6 +22,7 @@ import {
   getSubgraphForDisplayComponent,
 } from "./app/display-components.js";
 import { buildNodeDetailIndex, getNodeDetail } from "./app/csv-node-details.js";
+import { createEditModeController } from "./app/edit-mode.js";
 import { GraphTabStateStore } from "./app/graph-tab-state-store.js";
 import { clampLayerDepth, getLayerDepthLabel, getSuggestedLayerDepth, getTrimmedLayerCount } from "./app/layer-utils.js";
 import {
@@ -39,9 +40,11 @@ const RENDER_API_PATH = "/api/render";
 const DEFAULT_NODE_SIZE_MODE = "sqrt";
 const AUTO_LAYER_NODE_THRESHOLD = 180;
 const AUTO_LAYER_EDGE_THRESHOLD = 320;
+const NODE_TEXT_MODES = ["label", "id", "none"];
 
 const fileInput = document.getElementById("fileInput");
 const renderBtn = document.getElementById("renderBtn");
+const appRoot = document.getElementById("appRoot");
 const statusEl = document.getElementById("status");
 const layoutSelect = document.getElementById("layoutSelect");
 const applyLayoutBtn = document.getElementById("applyLayoutBtn");
@@ -57,6 +60,7 @@ const toggleNodeTextBtn = document.getElementById("toggleNodeTextBtn");
 const nodeTextModeInfo = document.getElementById("nodeTextModeInfo");
 const nodeSizeModeSelect = document.getElementById("nodeSizeModeSelect");
 const nodeSizeModeInfo = document.getElementById("nodeSizeModeInfo");
+const editModeBtn = document.getElementById("editModeBtn");
 const minComponentSizeInput = document.getElementById("minComponentSizeInput");
 const minComponentSizeDownBtn = document.getElementById("minComponentSizeDownBtn");
 const minComponentSizeUpBtn = document.getElementById("minComponentSizeUpBtn");
@@ -70,12 +74,19 @@ const layerDepthInfo = document.getElementById("layerDepthInfo");
 const nodeDetailTitle = document.getElementById("nodeDetailTitle");
 const nodeDetailMeta = document.getElementById("nodeDetailMeta");
 const nodeDetailBody = document.getElementById("nodeDetailBody");
+const networkShell = document.getElementById("networkShell");
 const networkEl = document.getElementById("network");
 
 const renderer = new GraphvizSvgRenderer(networkEl, {
   onSelectionChange: (nodeId) => updateSelectedNodeDetail(nodeId),
 });
 const tabStateStore = new GraphTabStateStore();
+export const editModeController = createEditModeController({
+  rootEl: networkShell,
+  toggleButton: editModeBtn,
+  disabledRoot: appRoot,
+});
+editModeController.mount();
 
 if (nodeSizeModeSelect) {
   nodeSizeModeSelect.value = DEFAULT_NODE_SIZE_MODE;
@@ -159,6 +170,12 @@ function buildRenderKey(renderedDepth = currentRenderedLayerDepth) {
     nodeSizeMode,
     renderedDepth <= 0 ? "render:all" : `render:-${renderedDepth}`,
   ].join("|");
+}
+
+function getNextNodeTextMode(mode) {
+  const currentIndex = NODE_TEXT_MODES.indexOf(mode);
+  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+  return NODE_TEXT_MODES[(safeIndex + 1) % NODE_TEXT_MODES.length];
 }
 
 function clearGraph() {
@@ -686,7 +703,7 @@ if (renderModeSelect) {
 toggleNodeTextBtn.addEventListener("click", () => {
   if (currentRenderProfile === "overview") return;
   captureCurrentTabViewState();
-  nodeTextMode = nodeTextMode === "label" ? "id" : "label";
+  nodeTextMode = getNextNodeTextMode(nodeTextMode);
   renderActiveGraph("已切换节点文本");
 });
 

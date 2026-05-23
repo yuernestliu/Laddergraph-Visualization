@@ -51,6 +51,13 @@
         gap: 8px 12px;
       }
 
+      .control-panel-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: stretch;
+      }
+
       .control-sections .section {
         min-width: 0;
       }
@@ -125,6 +132,20 @@
         color: #fff;
         background: var(--accent);
         border-color: var(--accent);
+      }
+
+      .edit-mode-launcher {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-left: 14px;
+        border-left: 1px solid rgba(185, 177, 163, 0.72);
+      }
+
+      #editModeBtn {
+        min-width: 78px;
+        min-height: 36px;
+        font-weight: 700;
       }
 
       h1 {
@@ -424,6 +445,17 @@
       }
 
       @media (max-width: 1000px) {
+        .control-panel-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .edit-mode-launcher {
+          justify-content: flex-start;
+          padding: 10px 0 0;
+          border-left: 0;
+          border-top: 1px solid rgba(185, 177, 163, 0.72);
+        }
+
         .control-sections .row {
           flex-wrap: wrap;
         }
@@ -444,66 +476,72 @@
     </style>
   </head>
   <body>
-    <main class="app">
+    <main id="appRoot" class="app">
       <section class="panel">
-        <div class="control-sections">
-          <div class="section">
-            <h2>导入</h2>
-            <div class="row">
-              <input id="fileInput" type="file" accept=".gv,.dot,.txt" />
-              <button id="renderBtn" class="primary compact-btn">渲染</button>
+        <div class="control-panel-layout">
+          <div class="control-sections">
+            <div class="section">
+              <h2>导入</h2>
+              <div class="row">
+                <input id="fileInput" type="file" accept=".gv,.dot,.txt" />
+                <button id="renderBtn" class="primary compact-btn">渲染</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <h2>布局</h2>
+              <div class="row">
+                <select id="layoutSelect">
+                  <option value="hierarchicalTB">层级布局（下->上）</option>
+                  <option value="hierarchicalLR">层级布局（左->右）</option>
+                  <option value="ruleBased">分层布局（组成关系递推）</option>
+                  <option value="force">力导向布局</option>
+                </select>
+                <button id="applyLayoutBtn">应用布局</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <h2>文本</h2>
+              <div class="row">
+                <button id="toggleNodeTextBtn">切换为显示 ID</button>
+              </div>
+              <p id="nodeTextModeInfo" class="hint">当前显示：Label</p>
+            </div>
+
+            <div class="section">
+              <h2>节点尺寸</h2>
+              <div class="row">
+                <select id="nodeSizeModeSelect">
+                  <option value="fixed">固定</option>
+                  <option value="sqrt" selected>sqrt(S)</option>
+                  <option value="cbrt">S^(1/3)</option>
+                  <option value="log">log(S+1)</option>
+                  <option value="linear">S</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="section">
+              <h2>最小网络规模</h2>
+              <div class="component-size-control">
+                <button id="minComponentSizeDownBtn" class="stepper-btn" type="button" aria-label="减小 M">-</button>
+                <input id="minComponentSizeInput" type="number" min="2" step="1" value="2" inputmode="numeric" />
+                <button id="minComponentSizeUpBtn" class="stepper-btn" type="button" aria-label="增大 M">+</button>
+              </div>
+              <div class="quick-picks" aria-label="常用最小网络规模">
+                <button type="button" data-min-component-size="2">&ge;2</button>
+                <button type="button" data-min-component-size="3">&ge;3</button>
+                <button type="button" data-min-component-size="5">&ge;5</button>
+                <button type="button" data-min-component-size="10">&ge;10</button>
+                <button type="button" data-min-component-size="20">&ge;20</button>
+              </div>
+              <p id="minComponentSizeInfo" class="hint">加载图后可设置。</p>
             </div>
           </div>
 
-          <div class="section">
-            <h2>布局</h2>
-            <div class="row">
-              <select id="layoutSelect">
-                <option value="hierarchicalTB">层级布局（下->上）</option>
-                <option value="hierarchicalLR">层级布局（左->右）</option>
-                <option value="ruleBased">分层布局（组成关系递推）</option>
-                <option value="force">力导向布局</option>
-              </select>
-              <button id="applyLayoutBtn">应用布局</button>
-            </div>
-          </div>
-
-          <div class="section">
-            <h2>文本</h2>
-            <div class="row">
-              <button id="toggleNodeTextBtn">切换为显示 ID</button>
-            </div>
-            <p id="nodeTextModeInfo" class="hint">当前显示：Label</p>
-          </div>
-
-          <div class="section">
-            <h2>节点尺寸</h2>
-            <div class="row">
-              <select id="nodeSizeModeSelect">
-                <option value="fixed">固定</option>
-                <option value="sqrt" selected>sqrt(S)</option>
-                <option value="cbrt">S^(1/3)</option>
-                <option value="log">log(S+1)</option>
-                <option value="linear">S</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="section">
-            <h2>最小网络规模</h2>
-            <div class="component-size-control">
-              <button id="minComponentSizeDownBtn" class="stepper-btn" type="button" aria-label="减小 M">-</button>
-              <input id="minComponentSizeInput" type="number" min="2" step="1" value="2" inputmode="numeric" />
-              <button id="minComponentSizeUpBtn" class="stepper-btn" type="button" aria-label="增大 M">+</button>
-            </div>
-            <div class="quick-picks" aria-label="常用最小网络规模">
-              <button type="button" data-min-component-size="2">&ge;2</button>
-              <button type="button" data-min-component-size="3">&ge;3</button>
-              <button type="button" data-min-component-size="5">&ge;5</button>
-              <button type="button" data-min-component-size="10">&ge;10</button>
-              <button type="button" data-min-component-size="20">&ge;20</button>
-            </div>
-            <p id="minComponentSizeInfo" class="hint">加载图后可设置。</p>
+          <div class="edit-mode-launcher" aria-label="编辑模式">
+            <button id="editModeBtn" type="button" aria-pressed="false" data-edit-mode-control>编辑</button>
           </div>
         </div>
       </section>
@@ -516,9 +554,9 @@
           <p id="status" hidden></p>
         </div>
         <div class="graph-workspace">
-          <div class="network-shell">
+          <div id="networkShell" class="network-shell">
             <div class="overlay-controls">
-              <div class="zoom-controls">
+              <div class="zoom-controls" data-edit-mode-control>
                 <button id="zoomInBtn" type="button" aria-label="放大">+</button>
                 <button id="zoomOutBtn" type="button" aria-label="缩小">-</button>
                 <button id="fitViewBtn" type="button" class="fit-btn" aria-label="适中">适中</button>

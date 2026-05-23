@@ -806,18 +806,27 @@ function buildRenderableNodeAttrs(node, options, sizeContext) {
     return attrs;
   }
 
+  if (nodeTextMode === "none") {
+    attrs.label = "";
+    delete attrs.xlabel;
+    return attrs;
+  }
+
   attrs.label = nodeTextMode === "id" ? String(node.id) : dotLabel;
   attrs.fontsize = attrs.fontsize || "12";
   return attrs;
 }
 
-function buildRenderableEdgeAttrs(edge, renderProfile) {
+function buildRenderableEdgeAttrs(edge, renderProfile, nodeTextMode) {
   const attrs = stripLayoutAttrs(edge.attrs || {});
   const compact = renderProfile === "overview";
 
   attrs.fontname = attrs.fontname || FONT_FAMILY;
-  if (compact) {
+  if (compact || nodeTextMode === "none") {
     delete attrs.label;
+    delete attrs.xlabel;
+    delete attrs.headlabel;
+    delete attrs.taillabel;
     attrs.penwidth = String(Math.max(0.8, Number(attrs.penwidth || 1)));
   }
 
@@ -872,7 +881,7 @@ export function serializeGraphToDot(parsed, options) {
   for (const edge of parsed.edges) {
     lines.push(
       `  ${quoteDotId(edge.from)} -> ${quoteDotId(edge.to)}${serializeAttrs(
-        buildRenderableEdgeAttrs(edge, renderProfile),
+        buildRenderableEdgeAttrs(edge, renderProfile, nodeTextMode),
       )};`,
     );
   }

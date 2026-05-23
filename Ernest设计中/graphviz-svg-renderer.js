@@ -532,8 +532,9 @@ export class GraphvizSvgRenderer {
   }
 
   decorateSplitLabelNodes() {
-    if (this.isOverview) {
+    if (this.isOverview || this.nodeTextMode === "none") {
       for (const entry of this.nodeEntries.values()) {
+        entry.group.querySelectorAll("text").forEach((text) => text.remove());
         entry.group.querySelectorAll(".codex-split-label").forEach((label) => label.remove());
       }
       return;

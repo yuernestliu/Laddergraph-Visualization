@@ -48,12 +48,27 @@
     - 合适层级计算
   - 这里不要碰 DOM。
 
-- `app/component-filter.js`
-  - 管理“小网络过滤”规则：
-    - 阈值裁剪
-    - 可见标签筛选
-    - 滑杆数值格式化
-  - 这里不要碰 DOM。
+- `app/display-components.js`
+  - 管理“小网络过滤”和可显示连通图生成规则：
+    - 忽略孤立点
+    - 按最小网络规模 M 筛选
+    - 保证每个标签页只显示一个连通图
+    - 标签过多时给 UI 层提供下拉选项数据
+  - 后续新增筛选工具时，优先接入这里的 display component 管线。
+
+- `app/csv-node-details.js`
+  - 管理同名 CSV 的解析和按节点 ID 查询详情。
+  - 这里不直接更新 DOM。
+
+- `app/edit-mode.js`
+  - 管理编辑模式入口和模式边界：
+    - 红框状态
+    - 编辑按钮状态
+    - 禁用非编辑控件
+    - `data-edit-mode-control` 白名单
+    - `laddergraph:edit-mode-change` 事件
+  - 后续如果要实现“编辑模式”的具体功能，优先从这里改或从这里拆出 `edit-*.js` 子模块。
+  - 不要把具体编辑功能塞回 `graphviz-app.js`。
 
 - `app/ui.js`
   - 所有“只更新界面”的逻辑都放这里：
@@ -119,6 +134,15 @@
   - `GraphTabStateStore#setLayerDepth(...)`
   - `GraphTabStateStore#getRenderedDepth(...)`
   - `GraphTabStateStore#setRenderedDepth(...)`
+
+- 编辑模式接口：
+  - `createEditModeController({ rootEl, toggleButton, disabledRoot })`
+  - `controller.mount()`
+  - `controller.setEnabled(true/false)`
+  - `controller.toggle()`
+  - `controller.refreshDisabledState()`
+  - `controller.isEnabled()`
+  - 允许编辑模式内继续可用的控件应放在带 `data-edit-mode-control` 的元素内。
 
 - 后端渲染接口：
   - `render_dot_to_svg(dot_source, engine, dot_bin, cwd)`

@@ -60,8 +60,11 @@ export function updateNodeTextModeInfo(nodeTextModeInfo, toggleNodeTextBtn, opti
   if (nodeTextMode === "label") {
     nodeTextModeInfo.textContent = "当前显示：Label";
     toggleNodeTextBtn.textContent = "切换为显示 ID";
-  } else {
+  } else if (nodeTextMode === "id") {
     nodeTextModeInfo.textContent = "当前显示：节点 ID";
+    toggleNodeTextBtn.textContent = "切换为隐藏文本";
+  } else {
+    nodeTextModeInfo.textContent = "当前显示：不显示节点文本";
     toggleNodeTextBtn.textContent = "切换为显示 Label";
   }
 }
