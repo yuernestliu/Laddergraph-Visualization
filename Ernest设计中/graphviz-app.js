@@ -21,13 +21,15 @@ import {
   clampMinComponentSize,
   getSubgraphForDisplayComponent,
 } from "./app/display-components.js";
-import { buildNodeDetailIndex, getNodeDetail } from "./app/csv-node-details.js";
+import { buildNodeDetailIndex as buildRowNodeDetailIndex, getNodeDetail } from "./app/csv-node-details.js";
 import { createEditModeController } from "./app/edit-mode.js";
 import { GraphTabStateStore } from "./app/graph-tab-state-store.js";
+import { buildLadderonNodeInfoIndex } from "./app/ladderon-node-info.js";
 import { clampLayerDepth, getLayerDepthLabel, getSuggestedLayerDepth, getTrimmedLayerCount } from "./app/layer-utils.js";
 import {
   renderGraphTabs as renderGraphTabsUi,
   setStatus as setStatusUi,
+  updateLabelFontSizeControl,
   updateLayerDepthControls as updateLayerDepthControlsUi,
   updateMinComponentSizeControl,
   updateNodeDetailPanel,
@@ -38,12 +40,17 @@ import {
 
 const RENDER_API_PATH = "/api/render";
 const DEFAULT_NODE_SIZE_MODE = "sqrt";
+const DEFAULT_LABEL_FONT_SIZE = 10;
+const MIN_LABEL_FONT_SIZE = 6;
+const MAX_LABEL_FONT_SIZE = 24;
 const AUTO_LAYER_NODE_THRESHOLD = 180;
 const AUTO_LAYER_EDGE_THRESHOLD = 320;
 const NODE_TEXT_MODES = ["label", "id", "none"];
 
 const fileInput = document.getElementById("fileInput");
 const renderBtn = document.getElementById("renderBtn");
+const nodeDetailCsvInput = document.getElementById("nodeDetailCsvInput");
+const importNodeDetailCsvBtn = document.getElementById("importNodeDetailCsvBtn");
 const appRoot = document.getElementById("appRoot");
 const statusEl = document.getElementById("status");
 const layoutSelect = document.getElementById("layoutSelect");
@@ -56,10 +63,14 @@ const zoomOutBtn = document.getElementById("zoomOutBtn");
 const fitViewBtn = document.getElementById("fitViewBtn");
 const renderModeSelect = document.getElementById("renderModeSelect");
 const renderModeInfo = document.getElementById("renderModeInfo");
-const toggleNodeTextBtn = document.getElementById("toggleNodeTextBtn");
+const nodeTextModeSelect = document.getElementById("nodeTextModeSelect");
 const nodeTextModeInfo = document.getElementById("nodeTextModeInfo");
+const labelFontSizeInput = document.getElementById("labelFontSizeInput");
+const labelFontSizeDownBtn = document.getElementById("labelFontSizeDownBtn");
+const labelFontSizeUpBtn = document.getElementById("labelFontSizeUpBtn");
 const nodeSizeModeSelect = document.getElementById("nodeSizeModeSelect");
 const nodeSizeModeInfo = document.getElementById("nodeSizeModeInfo");
+const nodeInfoStatus = document.getElementById("nodeInfoStatus");
 const editModeBtn = document.getElementById("editModeBtn");
 const minComponentSizeInput = document.getElementById("minComponentSizeInput");
 const minComponentSizeDownBtn = document.getElementById("minComponentSizeDownBtn");
@@ -96,6 +107,10 @@ if (minComponentSizeInput) {
   minComponentSizeInput.value = String(DEFAULT_MIN_COMPONENT_SIZE);
 }
 
+if (labelFontSizeInput) {
+  labelFontSizeInput.value = String(DEFAULT_LABEL_FONT_SIZE);
+}
+
 let sourceParsedGraph = null;
 let currentDotText = "";
 let currentGraphStats = null;
@@ -106,6 +121,7 @@ let activeGraphTabId = null;
 let currentRenderProfile = "full";
 let currentEffectiveLayoutMode = "hierarchicalTB";
 let nodeTextMode = "label";
+let labelFontSize = DEFAULT_LABEL_FONT_SIZE;
 let nodeSizeMode = DEFAULT_NODE_SIZE_MODE;
 let minComponentSize = DEFAULT_MIN_COMPONENT_SIZE;
 let minComponentSizeMax = DEFAULT_MIN_COMPONENT_SIZE;
@@ -157,6 +173,7 @@ function buildViewKey(layerDepth = currentLayerDepth) {
     currentEffectiveLayoutMode,
     currentRenderProfile,
     nodeTextMode,
+    labelFontSize,
     nodeSizeMode,
     layerDepth <= 0 ? "depth:all" : `depth:-${layerDepth}`,
   ].join("|");
@@ -167,15 +184,10 @@ function buildRenderKey(renderedDepth = currentRenderedLayerDepth) {
     currentEffectiveLayoutMode,
     currentRenderProfile,
     nodeTextMode,
+    labelFontSize,
     nodeSizeMode,
     renderedDepth <= 0 ? "render:all" : `render:-${renderedDepth}`,
   ].join("|");
-}
-
-function getNextNodeTextMode(mode) {
-  const currentIndex = NODE_TEXT_MODES.indexOf(mode);
-  const safeIndex = currentIndex >= 0 ? currentIndex : 0;
-  return NODE_TEXT_MODES[(safeIndex + 1) % NODE_TEXT_MODES.length];
 }
 
 function clearGraph() {
@@ -205,6 +217,8 @@ function clearGraph() {
   tabStateStore.reset();
   renderer.clear();
   updateMinComponentSizeInfo();
+  updateLabelFontSizeInfo();
+  updateNodeInfoStatus();
   updateSelectedNodeDetail(null);
 }
 
@@ -221,14 +235,37 @@ function updateRenderModeInfo() {
 }
 
 function updateNodeTextModeInfo() {
-  updateNodeTextModeInfoUi(nodeTextModeInfo, toggleNodeTextBtn, {
+  updateNodeTextModeInfoUi(nodeTextModeInfo, nodeTextModeSelect, {
     currentRenderProfile,
     nodeTextMode,
   });
 }
 
+function updateNodeInfoStatus() {
+  if (!nodeInfoStatus) return;
+  const infoCount = currentNodeDetailIndex?.entriesById?.size || 0;
+  const hasInfo = infoCount > 0;
+  nodeInfoStatus.textContent = hasInfo ? `节点信息：有（${infoCount} 项）` : "节点信息：无";
+  nodeInfoStatus.classList.toggle("has-info", hasInfo);
+}
+
 function updateNodeSizeModeInfo() {
   updateNodeSizeModeInfoUi(nodeSizeModeInfo, nodeSizeMode, formatNodeSizeModeLabel);
+}
+
+function updateLabelFontSizeInfo() {
+  updateLabelFontSizeControl(
+    {
+      labelFontSizeInput,
+      labelFontSizeDownBtn,
+      labelFontSizeUpBtn,
+    },
+    {
+      labelFontSize,
+      minLabelFontSize: MIN_LABEL_FONT_SIZE,
+      maxLabelFontSize: MAX_LABEL_FONT_SIZE,
+    },
+  );
 }
 
 function updateMinComponentSizeInfo() {
@@ -302,10 +339,19 @@ function getCsvCandidatesForGraph(sourceName) {
   return Array.from(new Set(candidates));
 }
 
+function buildBestNodeDetailIndex(csvText) {
+  const ladderonIndex = buildLadderonNodeInfoIndex(csvText);
+  if (ladderonIndex.supported && ladderonIndex.entriesById.size > 0) {
+    return ladderonIndex;
+  }
+  return buildRowNodeDetailIndex(csvText);
+}
+
 async function loadNodeDetailsForGraph(sourceName) {
   currentNodeDetailIndex = null;
   currentNodeDetailSource = "";
   currentNodeDetailStatus = "正在查找同名 CSV...";
+  updateNodeInfoStatus();
   updateSelectedNodeDetail(null);
 
   for (const candidate of getCsvCandidatesForGraph(sourceName)) {
@@ -314,10 +360,11 @@ async function loadNodeDetailsForGraph(sourceName) {
       if (!response.ok) continue;
 
       const csvText = await response.text();
-      currentNodeDetailIndex = buildNodeDetailIndex(csvText);
+      currentNodeDetailIndex = buildBestNodeDetailIndex(csvText);
       currentNodeDetailSource = candidate;
       currentNodeDetailStatus =
         `已加载 ${candidate}；${currentNodeDetailIndex.entriesById.size} 条详情。`;
+      updateNodeInfoStatus();
       updateSelectedNodeDetail(selectedNodeId);
       return;
     } catch (error) {
@@ -326,7 +373,29 @@ async function loadNodeDetailsForGraph(sourceName) {
   }
 
   currentNodeDetailStatus = "没有找到同名 CSV。";
+  updateNodeInfoStatus();
   updateSelectedNodeDetail(selectedNodeId);
+}
+
+async function loadNodeDetailsFromFile(file) {
+  if (!file) return;
+
+  try {
+    const csvText = await file.text();
+    currentNodeDetailIndex = buildBestNodeDetailIndex(csvText);
+    currentNodeDetailSource = file.name;
+    currentNodeDetailStatus =
+      `已导入节点信息：${file.name}；${currentNodeDetailIndex.entriesById.size} 条详情。`;
+    updateNodeInfoStatus();
+    updateSelectedNodeDetail(selectedNodeId);
+  } catch (error) {
+    currentNodeDetailIndex = null;
+    currentNodeDetailStatus = `节点信息导入失败：${error.message}`;
+    updateNodeInfoStatus();
+    updateSelectedNodeDetail(selectedNodeId);
+    setStatus(currentNodeDetailStatus, true);
+    console.error(error);
+  }
 }
 
 function getMinComponentThreshold() {
@@ -336,6 +405,12 @@ function getMinComponentThreshold() {
 function normalizeMinComponentSize(value) {
   const parsed = Number.parseInt(value, 10);
   return Math.max(DEFAULT_MIN_COMPONENT_SIZE, Number.isFinite(parsed) ? parsed : DEFAULT_MIN_COMPONENT_SIZE);
+}
+
+function normalizeLabelFontSize(value) {
+  const parsed = Number.parseInt(value, 10);
+  const safeValue = Number.isFinite(parsed) ? parsed : DEFAULT_LABEL_FONT_SIZE;
+  return Math.max(MIN_LABEL_FONT_SIZE, Math.min(MAX_LABEL_FONT_SIZE, safeValue));
 }
 
 function refreshLayerState({ resetDepth = false } = {}) {
@@ -412,6 +487,24 @@ function applyMinComponentSize(nextSize) {
 
 function stepMinComponentSize(delta) {
   applyMinComponentSize(minComponentSize + delta);
+}
+
+function applyLabelFontSize(nextSize) {
+  const normalizedSize = normalizeLabelFontSize(nextSize);
+  if (labelFontSize === normalizedSize) {
+    updateLabelFontSizeInfo();
+    return;
+  }
+
+  captureCurrentTabViewState();
+  labelFontSize = normalizedSize;
+  updateLabelFontSizeInfo();
+  if (!sourceParsedGraph) return;
+  renderActiveGraph("已切换 Label 字号");
+}
+
+function stepLabelFontSize(delta) {
+  applyLabelFontSize(labelFontSize + delta);
 }
 
 function applyLayerDepth(nextDepth, { auto = false, status = "" } = {}) {
@@ -537,6 +630,7 @@ async function renderActiveGraph(statusPrefix = "") {
   updateRenderModeInfo();
   updateNodeTextModeInfo();
   updateNodeSizeModeInfo();
+  updateLabelFontSizeInfo();
   updateLayerDepthControls();
   renderGraphTabs();
 
@@ -544,6 +638,7 @@ async function renderActiveGraph(statusPrefix = "") {
     renderProfile: currentRenderProfile,
     layoutMode: currentEffectiveLayoutMode,
     nodeTextMode,
+    labelFontSize,
     nodeSizeMode,
     sizeSourceNodes: currentTabBaseSubgraph.nodes,
   });
@@ -568,6 +663,7 @@ async function renderActiveGraph(statusPrefix = "") {
       parsed: currentRenderedSubgraph,
       overview: currentRenderProfile === "overview",
       nodeTextMode,
+      labelFontSize,
     });
 
     await new Promise((resolve) => window.requestAnimationFrame(resolve));
@@ -575,6 +671,9 @@ async function renderActiveGraph(statusPrefix = "") {
     const restoredViewport = renderer.restoreViewState(savedState, currentViewKey);
     if (!restoredViewport) {
       renderer.fitToView();
+    }
+    if (!savedState?.selectedNodeId && selectedNodeId && renderer.hasNode(selectedNodeId)) {
+      renderer.applySelectionHighlight(selectedNodeId);
     }
 
     tabStateStore.setViewState(activeTab.id, currentViewKey, renderer.getViewState(currentViewKey));
@@ -675,6 +774,18 @@ fileInput.addEventListener("change", async (event) => {
   }
 });
 
+if (importNodeDetailCsvBtn && nodeDetailCsvInput) {
+  importNodeDetailCsvBtn.addEventListener("click", () => {
+    nodeDetailCsvInput.click();
+  });
+
+  nodeDetailCsvInput.addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    await loadNodeDetailsFromFile(file);
+    nodeDetailCsvInput.value = "";
+  });
+}
+
 renderBtn.addEventListener("click", () => {
   if (!currentDotText.trim()) {
     setStatus("请先导入一个 .gv 文件。", true);
@@ -700,12 +811,37 @@ if (renderModeSelect) {
   });
 }
 
-toggleNodeTextBtn.addEventListener("click", () => {
-  if (currentRenderProfile === "overview") return;
-  captureCurrentTabViewState();
-  nodeTextMode = getNextNodeTextMode(nodeTextMode);
-  renderActiveGraph("已切换节点文本");
-});
+if (nodeTextModeSelect) {
+  nodeTextModeSelect.addEventListener("change", () => {
+    const nextMode = nodeTextModeSelect.value;
+    if (currentRenderProfile === "overview" || !NODE_TEXT_MODES.includes(nextMode)) return;
+    if (nodeTextMode === nextMode) return;
+    captureCurrentTabViewState();
+    nodeTextMode = nextMode;
+    renderActiveGraph("已切换节点文本");
+  });
+}
+
+if (labelFontSizeInput) {
+  labelFontSizeInput.addEventListener("change", () => {
+    applyLabelFontSize(labelFontSizeInput.value);
+  });
+
+  labelFontSizeInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applyLabelFontSize(labelFontSizeInput.value);
+    }
+  });
+}
+
+if (labelFontSizeDownBtn) {
+  labelFontSizeDownBtn.addEventListener("click", () => stepLabelFontSize(-1));
+}
+
+if (labelFontSizeUpBtn) {
+  labelFontSizeUpBtn.addEventListener("click", () => stepLabelFontSize(1));
+}
 
 nodeSizeModeSelect.addEventListener("change", () => {
   nodeSizeMode = nodeSizeModeSelect.value;
@@ -794,6 +930,7 @@ if (nodeSizeModeSelect) {
 
 updateNodeTextModeInfo();
 updateNodeSizeModeInfo();
+updateLabelFontSizeInfo();
 updateMinComponentSizeInfo();
 updateRenderModeInfo();
 updateLayerDepthControls();

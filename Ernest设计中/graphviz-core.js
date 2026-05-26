@@ -528,9 +528,9 @@ export function parseDot(dotText) {
       continue;
     }
 
-    const edgeMatch = stmt.match(/^(.*?)\s*->\s*(.*)$/);
+    const edgeMatch = stmt.match(/^([\s\S]*?)\s*->\s*([\s\S]*)$/);
     if (edgeMatch) {
-      const attrMatch = stmt.match(/\[(.*)\]\s*$/);
+      const attrMatch = stmt.match(/\[([\s\S]*)\]\s*$/);
       const attrs = attrMatch ? parseAttributes(attrMatch[1]) : {};
       const edgeExpr = attrMatch ? stmt.slice(0, attrMatch.index).trim() : stmt.trim();
       const ids = edgeExpr.split(/->/).map((segment) => cleanId(segment.trim())).filter(Boolean);
@@ -545,13 +545,13 @@ export function parseDot(dotText) {
       continue;
     }
 
-    const nodeDefaultMatch = stmt.match(/^node\s*\[(.*)\]$/i);
+    const nodeDefaultMatch = stmt.match(/^node\s*\[([\s\S]*)\]$/i);
     if (nodeDefaultMatch) {
       Object.assign(defaultNodeAttrs, parseAttributes(nodeDefaultMatch[1]));
       continue;
     }
 
-    const edgeDefaultMatch = stmt.match(/^edge\s*\[(.*)\]$/i);
+    const edgeDefaultMatch = stmt.match(/^edge\s*\[([\s\S]*)\]$/i);
     if (edgeDefaultMatch) {
       Object.assign(defaultEdgeAttrs, parseAttributes(edgeDefaultMatch[1]));
       continue;
@@ -563,7 +563,7 @@ export function parseDot(dotText) {
       continue;
     }
 
-    const nodeMatch = stmt.match(/^(.+?)\s*\[(.*)\]$/);
+    const nodeMatch = stmt.match(/^([\s\S]+?)\s*\[([\s\S]*)\]$/);
     if (nodeMatch) {
       const id = cleanId(nodeMatch[1].trim());
       const attrs = { ...defaultNodeAttrs, ...parseAttributes(nodeMatch[2]) };
@@ -751,6 +751,7 @@ function buildRenderableNodeAttrs(node, options, sizeContext) {
   const targetNode = isTargetNode(attrs, node.id);
   const splitLabelNode = isExternalLabelEllipseNode(attrs, node.id);
   const scalableGreyEllipse = isScalableLadderNode(attrs, node.id);
+  const labelFontSize = Math.max(6, Math.min(24, Number(options.labelFontSize || 10)));
 
   attrs.fontname = attrs.fontname || FONT_FAMILY;
 
@@ -802,7 +803,7 @@ function buildRenderableNodeAttrs(node, options, sizeContext) {
 
   if (compact) {
     attrs.label = "";
-    attrs.fontsize = attrs.fontsize || "9";
+    attrs.fontsize = attrs.fontsize || "8";
     return attrs;
   }
 
@@ -813,7 +814,7 @@ function buildRenderableNodeAttrs(node, options, sizeContext) {
   }
 
   attrs.label = nodeTextMode === "id" ? String(node.id) : dotLabel;
-  attrs.fontsize = attrs.fontsize || "12";
+  attrs.fontsize = String(labelFontSize);
   return attrs;
 }
 
@@ -834,7 +835,7 @@ function buildRenderableEdgeAttrs(edge, renderProfile, nodeTextMode) {
 }
 
 export function serializeGraphToDot(parsed, options) {
-  const { renderProfile, layoutMode, nodeTextMode, nodeSizeMode } = options;
+  const { renderProfile, layoutMode, nodeTextMode, nodeSizeMode, labelFontSize } = options;
   const layoutSpec = getLayoutSpec(layoutMode, renderProfile);
   const compact = renderProfile === "overview";
   const sizeContext = buildNodeSizeContext(
@@ -868,12 +869,12 @@ export function serializeGraphToDot(parsed, options) {
       compact ? "0.04,0.02" : "0.12,0.06",
     )}];`,
   );
-  lines.push(`  edge [fontname=${quoteDotValue(FONT_FAMILY)}];`);
+  lines.push(`  edge [fontname=${quoteDotValue(FONT_FAMILY)}, fontsize="9"];`);
 
   for (const node of parsed.nodes) {
     lines.push(
       `  ${quoteDotId(node.id)}${serializeAttrs(
-        buildRenderableNodeAttrs(node, { renderProfile, nodeTextMode }, sizeContext),
+        buildRenderableNodeAttrs(node, { renderProfile, nodeTextMode, labelFontSize }, sizeContext),
       )};`,
     );
   }

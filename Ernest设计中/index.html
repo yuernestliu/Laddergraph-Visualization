@@ -47,7 +47,12 @@
 
       .control-sections {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns:
+          minmax(410px, 1.35fr)
+          minmax(180px, 0.6fr)
+          minmax(205px, 0.65fr)
+          minmax(136px, 0.4fr)
+          minmax(300px, 1fr);
         gap: 8px 12px;
       }
 
@@ -108,6 +113,32 @@
         width: 100%;
         text-align: center;
         font-variant-numeric: tabular-nums;
+      }
+
+      .text-controls {
+        display: grid;
+        grid-template-columns: 118px minmax(108px, 1fr);
+        gap: 6px;
+        align-items: center;
+      }
+
+      .label-font-size-control {
+        display: grid;
+        grid-template-columns: 30px minmax(42px, 52px) 30px;
+        gap: 4px;
+        align-items: center;
+      }
+
+      .label-font-size-control input[type="number"] {
+        width: 100%;
+        padding: 6px 5px;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .label-font-size-control button {
+        min-width: 30px;
+        padding: 6px 7px;
       }
 
       .stepper-btn {
@@ -205,6 +236,7 @@
 
       select,
       button,
+      input[type="number"],
       input[type="file"] {
         border: 1px solid var(--line);
         border-radius: 8px;
@@ -236,6 +268,11 @@
         white-space: nowrap;
       }
 
+      #importNodeDetailCsvBtn {
+        flex: 0 0 auto;
+        white-space: nowrap;
+      }
+
       #layoutSelect {
         min-width: 0;
         flex: 1 1 auto;
@@ -244,6 +281,23 @@
       #applyLayoutBtn {
         flex: 0 0 auto;
         white-space: nowrap;
+      }
+
+      #nodeTextModeSelect {
+        width: 118px;
+      }
+
+      #nodeSizeModeSelect {
+        width: 132px;
+      }
+
+      .node-info-status {
+        margin-top: 6px;
+      }
+
+      .node-info-status.has-info {
+        color: var(--accent);
+        font-weight: 700;
       }
 
       button.primary {
@@ -444,9 +498,13 @@
         margin: 0;
       }
 
-      @media (max-width: 1000px) {
+      @media (max-width: 1320px) {
         .control-panel-layout {
           grid-template-columns: 1fr;
+        }
+
+        .control-sections {
+          grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
         }
 
         .edit-mode-launcher {
@@ -459,7 +517,9 @@
         .control-sections .row {
           flex-wrap: wrap;
         }
+      }
 
+      @media (max-width: 1000px) {
         #network {
           height: 68vh;
         }
@@ -473,6 +533,12 @@
           max-height: 260px;
         }
       }
+
+      @media (max-width: 640px) {
+        .control-sections {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
   </head>
   <body>
@@ -480,15 +546,18 @@
       <section class="panel">
         <div class="control-panel-layout">
           <div class="control-sections">
-            <div class="section">
+            <div class="section import-section">
               <h2>导入</h2>
               <div class="row">
                 <input id="fileInput" type="file" accept=".gv,.dot,.txt" />
                 <button id="renderBtn" class="primary compact-btn">渲染</button>
+                <input id="nodeDetailCsvInput" type="file" accept=".csv,text/csv" hidden />
+                <button id="importNodeDetailCsvBtn" class="primary compact-btn" type="button">导入节点信息</button>
               </div>
+              <p id="nodeInfoStatus" class="hint node-info-status">节点信息：无</p>
             </div>
 
-            <div class="section">
+            <div class="section layout-section">
               <h2>布局</h2>
               <div class="row">
                 <select id="layoutSelect">
@@ -497,19 +566,27 @@
                   <option value="ruleBased">分层布局（组成关系递推）</option>
                   <option value="force">力导向布局</option>
                 </select>
-                <button id="applyLayoutBtn">应用布局</button>
+                <button id="applyLayoutBtn">应用</button>
               </div>
             </div>
 
-            <div class="section">
+            <div class="section text-section">
               <h2>文本</h2>
-              <div class="row">
-                <button id="toggleNodeTextBtn">切换为显示 ID</button>
+              <div class="text-controls">
+                <select id="nodeTextModeSelect" aria-label="文本显示">
+                  <option value="label" selected>都显示</option>
+                  <option value="id">只显示 ID</option>
+                  <option value="none">不显示 Label</option>
+                </select>
+                <div class="label-font-size-control" aria-label="Label 字号">
+                  <button id="labelFontSizeDownBtn" class="stepper-btn" type="button" aria-label="减小 Label 字号">-</button>
+                  <input id="labelFontSizeInput" type="number" min="6" max="24" step="1" value="10" inputmode="numeric" aria-label="Label 字号" />
+                  <button id="labelFontSizeUpBtn" class="stepper-btn" type="button" aria-label="增大 Label 字号">+</button>
+                </div>
               </div>
-              <p id="nodeTextModeInfo" class="hint">当前显示：Label</p>
             </div>
 
-            <div class="section">
+            <div class="section size-section">
               <h2>节点尺寸</h2>
               <div class="row">
                 <select id="nodeSizeModeSelect">
@@ -522,7 +599,7 @@
               </div>
             </div>
 
-            <div class="section">
+            <div class="section component-section">
               <h2>最小网络规模</h2>
               <div class="component-size-control">
                 <button id="minComponentSizeDownBtn" class="stepper-btn" type="button" aria-label="减小 M">-</button>

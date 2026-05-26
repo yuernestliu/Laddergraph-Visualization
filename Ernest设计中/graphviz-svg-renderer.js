@@ -23,6 +23,7 @@ export class GraphvizSvgRenderer {
     this.currentViewport = null;
     this.currentSubgraph = null;
     this.nodeTextMode = "label";
+    this.labelFontSize = 10;
     this.isOverview = false;
     this.activeSelectionNodeId = null;
     this.nodeEntries = new Map();
@@ -36,6 +37,10 @@ export class GraphvizSvgRenderer {
 
   hasGraph() {
     return Boolean(this.currentSvg);
+  }
+
+  hasNode(nodeId) {
+    return this.nodeEntries.has(String(nodeId));
   }
 
   clear() {
@@ -82,7 +87,7 @@ export class GraphvizSvgRenderer {
     return restoredViewport;
   }
 
-  render({ svgMarkup, parsed, overview, nodeTextMode }) {
+  render({ svgMarkup, parsed, overview, nodeTextMode, labelFontSize }) {
     this.clear();
 
     const svg = this.parseSvgMarkup(svgMarkup);
@@ -111,6 +116,7 @@ export class GraphvizSvgRenderer {
     this.currentSubgraph = parsed;
     this.isOverview = overview;
     this.nodeTextMode = nodeTextMode;
+    this.labelFontSize = Math.max(6, Math.min(24, Number(labelFontSize || 10)));
 
     this.bindSvgGraph(svg, parsed);
     this.expandSvgViewToContent(svg);
@@ -281,7 +287,7 @@ export class GraphvizSvgRenderer {
     textEl.setAttribute("y", `${y}`);
     textEl.setAttribute("text-anchor", "middle");
     textEl.setAttribute("font-family", FONT_FAMILY);
-    textEl.setAttribute("font-size", String(options.fontSize || 11));
+    textEl.setAttribute("font-size", String(options.fontSize || 9.5));
     textEl.setAttribute("fill", options.fill || "#111111");
     textEl.setAttribute("class", className);
     textEl.style.paintOrder = "stroke fill";
@@ -565,8 +571,8 @@ export class GraphvizSvgRenderer {
           ? { top: "", inner: String(nodeId) }
           : splitDisplayLabel(nodeMeta.attrs?.label || nodeId);
 
-      const innerFontSize = isTarget ? 15 : 16;
-      const topFontSize = isTarget ? 16 : 17;
+      const innerFontSize = isTarget ? this.labelFontSize + 2 : this.labelFontSize + 3;
+      const topFontSize = isTarget ? this.labelFontSize + 2.5 : this.labelFontSize + 3.5;
 
       if (parts.inner) {
         const innerLabel = this.createSvgText(
@@ -578,7 +584,7 @@ export class GraphvizSvgRenderer {
             fontSize: innerFontSize,
             fill: "#111111",
             stroke: "#ffffff",
-            strokeWidth: isTarget ? 4 : 4.4,
+            strokeWidth: isTarget ? 3.2 : 3.5,
           },
         );
         innerLabel.setAttribute("data-label-role", "inner");
@@ -590,7 +596,7 @@ export class GraphvizSvgRenderer {
           fontSize: topFontSize,
           fill: "#111111",
           stroke: "rgba(255,255,255,0.92)",
-          strokeWidth: isTarget ? 4.2 : 4.6,
+          strokeWidth: isTarget ? 3.3 : 3.6,
         });
         topLabel.setAttribute("data-label-role", "top");
         topLabel.setAttribute("dominant-baseline", "auto");

@@ -46,26 +46,31 @@ export function updateRenderModeInfo(renderModeInfo, options) {
   renderModeInfo.textContent = `当前策略：${requestedLabel}（${sizeLabel}）`;
 }
 
-export function updateNodeTextModeInfo(nodeTextModeInfo, toggleNodeTextBtn, options) {
+export function updateNodeTextModeInfo(nodeTextModeInfo, nodeTextModeSelect, options) {
   const { currentRenderProfile, nodeTextMode } = options;
+  const labels = {
+    label: "都显示",
+    id: "只显示 ID",
+    none: "不显示 Label",
+  };
 
   if (currentRenderProfile === "overview") {
-    nodeTextModeInfo.textContent = "当前显示：概览模式已隐藏节点文本";
-    toggleNodeTextBtn.textContent = "概览模式已隐藏文本";
-    toggleNodeTextBtn.disabled = true;
+    if (nodeTextModeSelect) {
+      nodeTextModeSelect.disabled = true;
+    }
+    if (nodeTextModeInfo) {
+      nodeTextModeInfo.textContent = "当前显示：概览模式已隐藏节点文本";
+    }
     return;
   }
 
-  toggleNodeTextBtn.disabled = false;
-  if (nodeTextMode === "label") {
-    nodeTextModeInfo.textContent = "当前显示：Label";
-    toggleNodeTextBtn.textContent = "切换为显示 ID";
-  } else if (nodeTextMode === "id") {
-    nodeTextModeInfo.textContent = "当前显示：节点 ID";
-    toggleNodeTextBtn.textContent = "切换为隐藏文本";
-  } else {
-    nodeTextModeInfo.textContent = "当前显示：不显示节点文本";
-    toggleNodeTextBtn.textContent = "切换为显示 Label";
+  if (nodeTextModeSelect) {
+    nodeTextModeSelect.disabled = false;
+    nodeTextModeSelect.value = nodeTextMode;
+  }
+
+  if (nodeTextModeInfo) {
+    nodeTextModeInfo.textContent = `当前显示：${labels[nodeTextMode] || labels.label}`;
   }
 }
 
@@ -77,6 +82,29 @@ export function updateNodeSizeModeInfo(nodeSizeModeInfo, nodeSizeMode, formatNod
     return;
   }
   nodeSizeModeInfo.textContent = `当前尺寸：target 固定；非 target 按 ${label} 映射，S 取括号里的数字。`;
+}
+
+export function updateLabelFontSizeControl(controlEls, options) {
+  const { labelFontSizeInput, labelFontSizeDownBtn, labelFontSizeUpBtn } = controlEls;
+  const { labelFontSize, minLabelFontSize, maxLabelFontSize } = options;
+  const minSize = Number.isFinite(minLabelFontSize) ? minLabelFontSize : 6;
+  const maxSize = Number.isFinite(maxLabelFontSize) ? maxLabelFontSize : 24;
+  const currentSize = Math.max(minSize, Math.min(maxSize, Number(labelFontSize || 10)));
+
+  if (labelFontSizeInput) {
+    labelFontSizeInput.min = String(minSize);
+    labelFontSizeInput.max = String(maxSize);
+    labelFontSizeInput.value = String(currentSize);
+    labelFontSizeInput.title = `Label 字号：${currentSize}`;
+  }
+
+  if (labelFontSizeDownBtn) {
+    labelFontSizeDownBtn.disabled = currentSize <= minSize;
+  }
+
+  if (labelFontSizeUpBtn) {
+    labelFontSizeUpBtn.disabled = currentSize >= maxSize;
+  }
 }
 
 export function updateMinComponentSizeControl(controlEls, options) {
@@ -291,6 +319,14 @@ export function updateNodeDetailPanel(detailEls, options) {
     nodeDetailMeta.textContent = missingMessage || csvStatus || "CSV 中没有找到这个 ID。";
     nodeDetailBody.textContent = "";
     nodeDetailBody.hidden = true;
+    return;
+  }
+
+  if (detail.type === "geneColumn") {
+    const genes = Array.isArray(detail.genes) ? detail.genes : [];
+    nodeDetailMeta.textContent = `节点 ${detail.id} · ${genes.length} 个基因`;
+    nodeDetailBody.hidden = false;
+    nodeDetailBody.textContent = genes.length ? genes.join("、") : "这个节点没有基因记录。";
     return;
   }
 
