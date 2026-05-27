@@ -18,6 +18,7 @@ const MAX_USER_SCALE = 24;
 export class GraphvizSvgRenderer {
   constructor(container, options = {}) {
     this.container = container;
+    this.onNodeClick = options.onNodeClick || (() => false);
     this.onSelectionChange = options.onSelectionChange || (() => {});
     this.currentSvg = null;
     this.currentViewport = null;
@@ -29,6 +30,7 @@ export class GraphvizSvgRenderer {
     this.nodeEntries = new Map();
     this.edgeEntries = new Map();
     this.activeNodeMeta = new Map();
+    this.pairSelectionNodeIds = new Set();
     this.panSession = null;
     this.suppressBackgroundClick = false;
 
@@ -53,12 +55,20 @@ export class GraphvizSvgRenderer {
     this.nodeEntries = new Map();
     this.edgeEntries = new Map();
     this.activeNodeMeta = new Map();
+    this.pairSelectionNodeIds = new Set();
     this.panSession = null;
     this.suppressBackgroundClick = false;
   }
 
   setLoading(isLoading) {
     this.container.classList.toggle("is-rendering", Boolean(isLoading));
+  }
+
+  setPairSelectionNodeIds(nodeIds = []) {
+    this.pairSelectionNodeIds = new Set(Array.from(nodeIds, String).filter(Boolean));
+    for (const [nodeId, entry] of this.nodeEntries) {
+      entry.group.classList.toggle("is-gene-pair-selected", this.pairSelectionNodeIds.has(String(nodeId)));
+    }
   }
 
   getViewState(viewKey) {
@@ -627,6 +637,12 @@ export class GraphvizSvgRenderer {
       entry.snapshot = this.captureNodeSnapshot(entry.group);
       entry.group.addEventListener("click", (event) => {
         event.stopPropagation();
+        const handled = this.onNodeClick({
+          nodeId,
+          event,
+          activeSelectionNodeId: this.activeSelectionNodeId,
+        });
+        if (handled) return;
         this.applySelectionHighlight(nodeId === this.activeSelectionNodeId ? null : nodeId);
       });
     }

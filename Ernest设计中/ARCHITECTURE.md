@@ -81,6 +81,14 @@
   - 精修只生成显示投影，不修改源图。
   - 后续如果要实现更复杂的隐藏/折叠/穿透逻辑，优先读 `app/refine-mode/README.md`。
 
+- `app/gene-pair-export/`
+  - 管理双节点基因导出：
+    - 普通点击作为第一选择
+    - `Ctrl`/`Command` 点击另一个节点作为第二选择
+    - 右侧详情面板显示导出按钮
+    - 导出两个节点的基因列表及交集 CSV
+  - 后续如果要调整导出字段、文件名或交集规则，优先读 `app/gene-pair-export/README.md`。
+
 - `app/ui.js`
   - 所有“只更新界面”的逻辑都放这里：
     - 状态文字
@@ -164,6 +172,13 @@
   - `controller.getProjectionSignature()`
   - `controller.clear()`
   - 允许精修模式内继续可用的控件应放在带 `data-refine-mode-control` 的元素内。
+
+- 双节点基因导出接口：
+  - `createGenePairExportController({ panelRoot, renderer, getNodeDetail })`
+  - `controller.handleNodeClick({ nodeId, event, activeSelectionNodeId })`
+  - `controller.setPrimaryNode(nodeId)`
+  - `controller.clearPair()`
+  - `controller.refresh()`
 
 - 后端渲染接口：
   - `render_dot_to_svg(dot_source, engine, dot_bin, cwd)`

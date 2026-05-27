@@ -23,6 +23,7 @@ import {
 } from "./app/display-components.js";
 import { buildNodeDetailIndex as buildRowNodeDetailIndex, getNodeDetail } from "./app/csv-node-details.js";
 import { createEditModeController } from "./app/edit-mode.js";
+import { createGenePairExportController } from "./app/gene-pair-export/gene-pair-export.js";
 import { GraphTabStateStore } from "./app/graph-tab-state-store.js";
 import { buildLadderonNodeInfoIndex } from "./app/ladderon-node-info.js";
 import { clampLayerDepth, getLayerDepthLabel, getSuggestedLayerDepth, getTrimmedLayerCount } from "./app/layer-utils.js";
@@ -87,14 +88,18 @@ const layerDepthInfo = document.getElementById("layerDepthInfo");
 const nodeDetailTitle = document.getElementById("nodeDetailTitle");
 const nodeDetailMeta = document.getElementById("nodeDetailMeta");
 const nodeDetailBody = document.getElementById("nodeDetailBody");
+const genePairExportPanel = document.getElementById("genePairExportPanel");
 const networkShell = document.getElementById("networkShell");
 const networkEl = document.getElementById("network");
 
 let refineModeController = null;
+let genePairExportController = null;
 const renderer = new GraphvizSvgRenderer(networkEl, {
+  onNodeClick: (detail) => genePairExportController?.handleNodeClick(detail) || false,
   onSelectionChange: (nodeId) => {
     updateSelectedNodeDetail(nodeId);
     refineModeController?.setSelectedNode(nodeId);
+    genePairExportController?.setPrimaryNode(nodeId);
   },
 });
 const tabStateStore = new GraphTabStateStore();
@@ -119,6 +124,13 @@ refineModeController = createRefineModeController({
 });
 refineModeController.mount();
 export { refineModeController };
+
+genePairExportController = createGenePairExportController({
+  panelRoot: genePairExportPanel,
+  renderer,
+  getNodeDetail: (nodeId) => getNodeDetail(currentNodeDetailIndex, nodeId),
+});
+export { genePairExportController };
 
 if (nodeSizeModeSelect) {
   nodeSizeModeSelect.value = DEFAULT_NODE_SIZE_MODE;
@@ -243,6 +255,7 @@ function clearGraph() {
   selectedNodeId = null;
   tabStateStore.reset();
   refineModeController?.clear();
+  genePairExportController?.clearPair();
   renderer.clear();
   updateMinComponentSizeInfo();
   updateLabelFontSizeInfo();
@@ -380,6 +393,7 @@ async function loadNodeDetailsForGraph(sourceName) {
   currentNodeDetailSource = "";
   currentNodeDetailStatus = "正在查找同名 CSV...";
   updateNodeInfoStatus();
+  genePairExportController?.refresh();
   updateSelectedNodeDetail(null);
 
   for (const candidate of getCsvCandidatesForGraph(sourceName)) {
@@ -393,6 +407,7 @@ async function loadNodeDetailsForGraph(sourceName) {
       currentNodeDetailStatus =
         `已加载 ${candidate}；${currentNodeDetailIndex.entriesById.size} 条详情。`;
       updateNodeInfoStatus();
+      genePairExportController?.refresh();
       updateSelectedNodeDetail(selectedNodeId);
       return;
     } catch (error) {
@@ -402,6 +417,7 @@ async function loadNodeDetailsForGraph(sourceName) {
 
   currentNodeDetailStatus = "没有找到同名 CSV。";
   updateNodeInfoStatus();
+  genePairExportController?.refresh();
   updateSelectedNodeDetail(selectedNodeId);
 }
 
@@ -415,11 +431,13 @@ async function loadNodeDetailsFromFile(file) {
     currentNodeDetailStatus =
       `已导入节点信息：${file.name}；${currentNodeDetailIndex.entriesById.size} 条详情。`;
     updateNodeInfoStatus();
+    genePairExportController?.refresh();
     updateSelectedNodeDetail(selectedNodeId);
   } catch (error) {
     currentNodeDetailIndex = null;
     currentNodeDetailStatus = `节点信息导入失败：${error.message}`;
     updateNodeInfoStatus();
+    genePairExportController?.refresh();
     updateSelectedNodeDetail(selectedNodeId);
     setStatus(currentNodeDetailStatus, true);
     console.error(error);
@@ -709,6 +727,7 @@ async function renderActiveGraph(statusPrefix = "") {
     if (!savedState?.selectedNodeId && selectedNodeId && renderer.hasNode(selectedNodeId)) {
       renderer.applySelectionHighlight(selectedNodeId);
     }
+    genePairExportController?.refresh();
 
     tabStateStore.setViewState(activeTab.id, currentViewKey, renderer.getViewState(currentViewKey));
     setStatus("");
@@ -735,6 +754,7 @@ function renderGraph(statusPrefix = "") {
     currentGraphStats = summarizeGraph(sourceParsedGraph);
     tabStateStore.reset();
     refineModeController?.clear();
+    genePairExportController?.clearPair();
     layerDepthIsAuto = true;
     refreshLayerState({ resetDepth: true });
     rebuildDisplayComponents({ preserveActive: false });

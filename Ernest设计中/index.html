@@ -344,6 +344,10 @@
         cursor: pointer;
       }
 
+      .graphviz-svg g.node.is-gene-pair-selected {
+        filter: drop-shadow(0 0 5px rgba(25, 113, 194, 0.72));
+      }
+
       .graphviz-svg g.node text,
       .graphviz-svg g.edge text {
         transition: fill 120ms ease;
@@ -408,6 +412,38 @@
         font-size: 15px;
         line-height: 1.75;
         word-break: break-all;
+      }
+
+      .gene-pair-export {
+        border-top: 1px solid var(--line);
+        padding-top: 10px;
+        display: grid;
+        gap: 7px;
+      }
+
+      .gene-pair-export[hidden] {
+        display: none;
+      }
+
+      .gene-pair-export-title {
+        margin: 0;
+        color: #0b3d66;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .gene-pair-export-meta {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .gene-pair-export-button {
+        justify-self: start;
+        background: #1971c2;
+        border-color: #1864ab;
+        color: #fff;
       }
 
       .overlay-controls {
@@ -656,6 +692,7 @@
             <h2 id="nodeDetailTitle" class="node-detail-title">未选择节点</h2>
             <p id="nodeDetailMeta" class="node-detail-meta">点击图中的节点查看 CSV 详情。</p>
             <p id="nodeDetailBody" class="node-detail-body" hidden></p>
+            <div id="genePairExportPanel"></div>
           </aside>
         </div>
       </section>

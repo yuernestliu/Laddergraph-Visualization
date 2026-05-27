@@ -71,6 +71,11 @@ python3 server.py
   - 行式详情：按节点 ID 查一行，当前用于 `G7-汉字3500.csv` 这类文件，展示最右列汉字预览。
   - 列式基因表：第一行是节点 ID，每一列是该节点的基因列表，当前示例是 `设计中/graphs/PHIRE/00_20_ladderons.csv`。
 - “导入节点信息”按钮已放在“导入”区旁边，按钮为蓝色，并显示 `节点信息：有/无`。
+- 双节点基因导出已经隔离成独立模块组。
+  - 普通点击一个梯元作为第一选择。
+  - 按住 `Ctrl`/`Command` 点击另一个梯元作为第二选择。
+  - 右侧详情面板会显示导出按钮。
+  - CSV 包含两个梯元各自的基因列表，以及两者交集基因。
 - 编辑模式已经有独立接口，但真实编辑功能尚未实现。
   - 进入编辑模式后，网络显示窗口出现红色边框。
   - 除编辑模式控件与缩放按钮外，其他按钮/输入/下拉会强制禁用。
@@ -123,6 +128,15 @@ python3 server.py
   - 列式节点信息解析模块。
   - 当前用于 `00_20_ladderons.csv` 这类“第一行是节点 ID、每列是该节点基因列表”的文件。
   - 这是后续多人分模块设计节点信息读取/计算功能的主要扩展点之一。
+
+- `设计中/app/gene-pair-export/`
+  - **双节点基因导出的主文件夹。后续 Agent 如果要编辑这个功能，优先读 `设计中/app/gene-pair-export/README.md`。**
+  - 当前负责：
+    - `createGenePairExportController(...)`
+    - Ctrl/Command 二次选择
+    - 右侧导出按钮
+    - 导出 `selected_1`、`selected_2`、`intersection` 三类 CSV 行
+  - 不负责 CSV 文件读取；节点详情来自 `graphviz-app.js` 传入的 `getNodeDetail` 回调。
 
 - `设计中/app/ui.js`
   - UI 文案、控件状态、标签/下拉渲染、右侧节点详情面板展示。
@@ -208,6 +222,11 @@ python3 server.py
   - 右侧展示样式优先改 `设计中/app/ui.js`。
   - 主控制器 `graphviz-app.js` 只负责选择合适的解析器并把结果传给 UI。
 
+- 双节点基因导出：
+  - 功能入口在 `设计中/app/gene-pair-export/`。
+  - 后续如果要改导出列、交集算法、文件名或支持多个节点，优先改这个文件夹。
+  - 不要在这个模块里重新解析 CSV 或重新 fetch 文件。
+
 - 字体与可读性：
   - Label 字号已作为渲染参数接入。
   - 普通 Graphviz label 在 `graphviz-core.js` 里通过 DOT `fontsize` 控制。
@@ -233,6 +252,7 @@ python3 server.py
 - 不要把“精修模式具体功能”写进 `graphviz-app.js`；精修逻辑应留在 `设计中/app/refine-mode/`。
 - 不要让编辑模式和精修模式同时开启。
 - 不要把节点信息解析继续堆进 `graphviz-app.js`；行式和列式 CSV 都应留在独立模块。
+- 不要把双节点基因导出逻辑写进 `graphviz-app.js`；应留在 `设计中/app/gene-pair-export/`。
 - 不要把文本模式恢复成循环按钮；当前要求是窄下拉菜单。
 - 不要在没有提醒用户的情况下静默做上下文压缩。
 
@@ -264,16 +284,22 @@ python3 server.py
    - 右侧详情展示：改 `设计中/app/ui.js`。
    - 示例文件：`设计中/graphs/PHIRE/00_20_ladderons.csv`。
 
-5. 如果继续调字体可读性：
+5. 如果继续做双节点导出：
+   - 先读 `设计中/app/gene-pair-export/README.md`。
+   - 导出行为改 `设计中/app/gene-pair-export/gene-pair-export.js`。
+   - 节点点击转发在 `graphviz-svg-renderer.js` 的 `onNodeClick` 和 `graphviz-app.js` 的 controller 接线。
+
+6. 如果继续调字体可读性：
    - 普通节点字号：看 `graphviz-core.js` 的 `labelFontSize`。
    - 特殊上下分行 label：看 `graphviz-svg-renderer.js` 的 `decorateSplitLabelNodes()`。
 
-6. 改动后验证：
+7. 改动后验证：
    - `node --check 设计中/graphviz-app.js`
    - `node --check 设计中/graphviz-core.js`
    - `node --check 设计中/graphviz-svg-renderer.js`
    - `node --check 设计中/app/ui.js`
    - `node --check 设计中/app/ladderon-node-info.js`
+   - `node --check 设计中/app/gene-pair-export/gene-pair-export.js`
    - `node --check 设计中/app/edit-mode/edit-controller.js`
    - `node --check 设计中/app/refine-mode/refine-controller.js`
    - 打开 `http://127.0.0.1:8000/` 做浏览器交互验证。
@@ -334,5 +360,7 @@ python3 server.py
 如果任务是精修 refine mode：直接从 `设计中/app/refine-mode/README.md` 开始。精修模式由 `refine-controller.js` 接入，状态在 `refine-state.js`，显示投影在 `refine-projection.js`，工具栏在 `refine-toolbar.js`。精修只能修改当前显示投影，不能改源图。编辑模式和精修模式必须保持互斥。
 
 如果任务是节点信息：行式 CSV 从 `设计中/app/csv-node-details.js` 开始；`00_20_ladderons.csv` 这类列式基因表从 `设计中/app/ladderon-node-info.js` 开始；右侧显示从 `设计中/app/ui.js` 开始。主控制器只负责接线。
+
+如果任务是双节点基因导出：直接从 `设计中/app/gene-pair-export/README.md` 和 `设计中/app/gene-pair-export/gene-pair-export.js` 开始。交互是普通点击第一梯元，再按 `Ctrl`/`Command` 点击第二梯元。导出 CSV 包含 `selected_1`、`selected_2`、`intersection` 三类记录。不要在这个模块里重新读 CSV；通过 `getNodeDetail(nodeId)` 使用主程序已经加载的节点详情。
 
 如果任务是显示过滤：从 `设计中/app/display-components.js` 开始，保持“源大图 + 过滤器 + 可显示连通图”的共同接口。不要为新筛选工具另写一套标签页/连通图逻辑。
