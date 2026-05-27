@@ -169,11 +169,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        gap: 8px;
         padding-left: 14px;
         border-left: 1px solid rgba(185, 177, 163, 0.72);
       }
 
-      #editModeBtn {
+      #editModeBtn,
+      #refineModeBtn {
         min-width: 78px;
         min-height: 36px;
         font-weight: 700;
@@ -619,6 +621,7 @@
 
           <div class="edit-mode-launcher" aria-label="编辑模式">
             <button id="editModeBtn" type="button" aria-pressed="false" data-edit-mode-control>编辑</button>
+            <button id="refineModeBtn" type="button" aria-pressed="false" data-refine-mode-control>精修</button>
           </div>
         </div>
       </section>
@@ -633,7 +636,7 @@
         <div class="graph-workspace">
           <div id="networkShell" class="network-shell">
             <div class="overlay-controls">
-              <div class="zoom-controls" data-edit-mode-control>
+              <div class="zoom-controls" data-edit-mode-control data-refine-mode-control>
                 <button id="zoomInBtn" type="button" aria-label="放大">+</button>
                 <button id="zoomOutBtn" type="button" aria-label="缩小">-</button>
                 <button id="fitViewBtn" type="button" class="fit-btn" aria-label="适中">适中</button>

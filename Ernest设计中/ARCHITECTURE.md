@@ -60,15 +60,26 @@
   - 管理同名 CSV 的解析和按节点 ID 查询详情。
   - 这里不直接更新 DOM。
 
-- `app/edit-mode.js`
+- `app/edit-mode/`
   - 管理编辑模式入口和模式边界：
     - 红框状态
     - 编辑按钮状态
     - 禁用非编辑控件
     - `data-edit-mode-control` 白名单
     - `laddergraph:edit-mode-change` 事件
-  - 后续如果要实现“编辑模式”的具体功能，优先从这里改或从这里拆出 `edit-*.js` 子模块。
+  - 后续如果要实现“编辑模式”的具体功能，优先读 `app/edit-mode/README.md`，再改这个文件夹。
+  - `app/edit-mode.js` 只是兼容转发入口。
   - 不要把具体编辑功能塞回 `graphviz-app.js`。
+
+- `app/refine-mode/`
+  - 管理“精修模式”：
+    - 蓝色精修边框
+    - 精修模式工具栏
+    - 关注、隐藏、折叠、展开、只看关注等精修状态
+    - `data-refine-mode-control` 白名单
+    - `laddergraph:refine-mode-change` 事件
+  - 精修只生成显示投影，不修改源图。
+  - 后续如果要实现更复杂的隐藏/折叠/穿透逻辑，优先读 `app/refine-mode/README.md`。
 
 - `app/ui.js`
   - 所有“只更新界面”的逻辑都放这里：
@@ -143,6 +154,16 @@
   - `controller.refreshDisabledState()`
   - `controller.isEnabled()`
   - 允许编辑模式内继续可用的控件应放在带 `data-edit-mode-control` 的元素内。
+
+- 精修模式接口：
+  - `createRefineModeController({ rootEl, toggleButton, disabledRoot, onChange, onProjectionChange })`
+  - `controller.mount()`
+  - `controller.setEnabled(true/false)`
+  - `controller.setSelectedNode(nodeId)`
+  - `controller.projectGraph(parsed)`
+  - `controller.getProjectionSignature()`
+  - `controller.clear()`
+  - 允许精修模式内继续可用的控件应放在带 `data-refine-mode-control` 的元素内。
 
 - 后端渲染接口：
   - `render_dot_to_svg(dot_source, engine, dot_bin, cwd)`

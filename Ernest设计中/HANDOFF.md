@@ -75,6 +75,11 @@ python3 server.py
   - 进入编辑模式后，网络显示窗口出现红色边框。
   - 除编辑模式控件与缩放按钮外，其他按钮/输入/下拉会强制禁用。
   - 缩放控件 `+ / - / 适中` 在编辑模式中仍允许使用。
+- 精修模式已经隔离成独立模块组。
+  - 进入精修模式后，网络显示窗口出现蓝色边框。
+  - 精修只生成当前显示投影，不修改原始大图。
+  - 当前第一版支持：关注、隐藏、折叠、展开、取消标记、只看关注、清空、退出。
+  - 编辑模式和精修模式互斥，同一时间只允许开启一个。
 
 ## 4. Current Code And Document Map
 
@@ -123,8 +128,8 @@ python3 server.py
   - UI 文案、控件状态、标签/下拉渲染、右侧节点详情面板展示。
   - 当前会识别 `detail.type === "geneColumn"` 并列出该节点对应列的全部基因。
 
-- `设计中/app/edit-mode.js`
-  - **编辑模式的主文件。后续 Agent 如果要编辑 edit mode，优先改这里。**
+- `设计中/app/edit-mode/`
+  - **编辑模式的主文件夹。后续 Agent 如果要编辑 edit mode，优先读 `设计中/app/edit-mode/README.md`。**
   - 当前负责：
     - `createEditModeController(...)`
     - 红框状态 class：`is-edit-mode`
@@ -139,6 +144,20 @@ python3 server.py
     - `toggle()`
     - `refreshDisabledState()`
     - `isEnabled()`
+  - `设计中/app/edit-mode.js` 只是兼容转发入口，保留旧导入路径。
+
+- `设计中/app/refine-mode/`
+  - **精修模式的主文件夹。后续 Agent 如果要编辑 refine mode，优先读 `设计中/app/refine-mode/README.md`。**
+  - 当前负责：
+    - `createRefineModeController(...)`
+    - 蓝色精修边框 class：`is-refine-mode`
+    - 精修按钮激活状态
+    - 精修工具栏
+    - 锁住非精修控件
+    - 白名单选择器：`[data-refine-mode-control]`
+    - 事件：`laddergraph:refine-mode-change`
+    - 当前显示投影：关注、隐藏、折叠、只看关注
+  - 精修投影入口是 `projectGraph(parsed)`，不能修改源图。
 
 - `设计中/app/graph-tab-state-store.js`
   - 标签页状态缓存：视口、选择状态、渲染缓存等。
@@ -169,8 +188,15 @@ python3 server.py
 - 编辑模式：
   - 当前只完成“模式边界”和“控件锁定”接口。
   - 真实编辑动作尚未实现。
-  - 下一步如果做节点编辑、颜色编辑、批量标注等，应优先扩展 `设计中/app/edit-mode.js`，必要时再新增 `设计中/app/edit-*.js` 子模块。
+  - 下一步如果做节点编辑、颜色编辑、批量标注等，应优先扩展 `设计中/app/edit-mode/`。
   - 不要把编辑功能直接塞回 `graphviz-app.js`。
+
+- 精修模式：
+  - 当前已完成独立文件夹和第一版投影动作。
+  - 后续更复杂的隐藏、折叠、穿透、路径压缩逻辑应优先放在 `设计中/app/refine-mode/refine-projection.js`。
+  - 精修状态字段应放在 `设计中/app/refine-mode/refine-state.js`。
+  - 精修 UI 按钮应放在 `设计中/app/refine-mode/refine-toolbar.js`。
+  - 主控制器只做接线和模式边界，不要把复杂图算法写回 `graphviz-app.js`。
 
 - 大图显示：
   - 继续保持“源大图 + 过滤器 + display components + 当前图渲染”的思路。
@@ -204,6 +230,8 @@ python3 server.py
 - 不要让每个标签页显示多个连通图；一个标签页只显示一个连通图。
 - 不要把“编辑模式具体功能”写进 `graphviz-app.js`；`graphviz-app.js` 只做接线。
 - 不要在编辑模式里禁用缩放按钮；用户明确要求缩放仍可用。
+- 不要把“精修模式具体功能”写进 `graphviz-app.js`；精修逻辑应留在 `设计中/app/refine-mode/`。
+- 不要让编辑模式和精修模式同时开启。
 - 不要把节点信息解析继续堆进 `graphviz-app.js`；行式和列式 CSV 都应留在独立模块。
 - 不要把文本模式恢复成循环按钮；当前要求是窄下拉菜单。
 - 不要在没有提醒用户的情况下静默做上下文压缩。
@@ -213,32 +241,41 @@ python3 server.py
 最有价值的下一步取决于用户目标：
 
 1. 如果继续做编辑模式：
-   - 先读 `设计中/app/edit-mode.js`。
+   - 先读 `设计中/app/edit-mode/README.md`。
    - 在 `#networkShell` 内加编辑工具栏或按钮。
    - 给编辑工具栏或按钮加 `data-edit-mode-control`，否则进入编辑模式会被锁住。
    - 通过 `laddergraph:edit-mode-change` 监听模式变化。
    - 保持缩放按钮可用。
 
-2. 如果继续做显示过滤：
+2. 如果继续做精修模式：
+   - 先读 `设计中/app/refine-mode/README.md`。
+   - 图投影算法改 `设计中/app/refine-mode/refine-projection.js`。
+   - 精修状态改 `设计中/app/refine-mode/refine-state.js`。
+   - 精修工具栏改 `设计中/app/refine-mode/refine-toolbar.js`。
+   - 保持精修只输出显示投影，不修改源图。
+
+3. 如果继续做显示过滤：
    - 优先改 `设计中/app/display-components.js`。
    - 新筛选条件应作为参数进入同一管线，最终仍输出一组可显示连通图。
 
-3. 如果继续做节点信息：
+4. 如果继续做节点信息：
    - 行式 CSV：改 `设计中/app/csv-node-details.js`。
    - 列式基因表：改 `设计中/app/ladderon-node-info.js`。
    - 右侧详情展示：改 `设计中/app/ui.js`。
    - 示例文件：`设计中/graphs/PHIRE/00_20_ladderons.csv`。
 
-4. 如果继续调字体可读性：
+5. 如果继续调字体可读性：
    - 普通节点字号：看 `graphviz-core.js` 的 `labelFontSize`。
    - 特殊上下分行 label：看 `graphviz-svg-renderer.js` 的 `decorateSplitLabelNodes()`。
 
-5. 改动后验证：
+6. 改动后验证：
    - `node --check 设计中/graphviz-app.js`
    - `node --check 设计中/graphviz-core.js`
    - `node --check 设计中/graphviz-svg-renderer.js`
    - `node --check 设计中/app/ui.js`
    - `node --check 设计中/app/ladderon-node-info.js`
+   - `node --check 设计中/app/edit-mode/edit-controller.js`
+   - `node --check 设计中/app/refine-mode/refine-controller.js`
    - 打开 `http://127.0.0.1:8000/` 做浏览器交互验证。
 
 ## 8. Deep References
@@ -292,7 +329,9 @@ python3 server.py
 
 你接手的是一个基于 Graphviz SVG 的 Laddergraph 浏览器，当前真源在 `/Users/ernest/Downloads/6-Codex项目/Laddergraph可视化/设计中/`。先读 `HANDOFF.md`，再读 `设计中/ARCHITECTURE.md`、`设计中/index.html`、`设计中/graphviz-app.js`、`设计中/graphviz-core.js`、`设计中/graphviz-svg-renderer.js` 和 `设计中/app/`。
 
-如果任务是编辑 edit mode：直接从 `设计中/app/edit-mode.js` 开始。主程序只在 `graphviz-app.js` 里用 `createEditModeController({ rootEl: networkShell, toggleButton: editModeBtn, disabledRoot: appRoot })` 接入。红框目标是 `#networkShell`，编辑按钮和缩放控件通过 `data-edit-mode-control` 保持可用。新增编辑模式自己的工具时，把控件放在 `#networkShell` 内并标记 `data-edit-mode-control`。不要把具体编辑功能写进 `graphviz-app.js`。
+如果任务是编辑 edit mode：直接从 `设计中/app/edit-mode/README.md` 和 `设计中/app/edit-mode/edit-controller.js` 开始。主程序只在 `graphviz-app.js` 里用 `createEditModeController({ rootEl: networkShell, toggleButton: editModeBtn, disabledRoot: appRoot })` 接入。红框目标是 `#networkShell`，编辑按钮和缩放控件通过 `data-edit-mode-control` 保持可用。新增编辑模式自己的工具时，把控件放在 `#networkShell` 内并标记 `data-edit-mode-control`。不要把具体编辑功能写进 `graphviz-app.js`。
+
+如果任务是精修 refine mode：直接从 `设计中/app/refine-mode/README.md` 开始。精修模式由 `refine-controller.js` 接入，状态在 `refine-state.js`，显示投影在 `refine-projection.js`，工具栏在 `refine-toolbar.js`。精修只能修改当前显示投影，不能改源图。编辑模式和精修模式必须保持互斥。
 
 如果任务是节点信息：行式 CSV 从 `设计中/app/csv-node-details.js` 开始；`00_20_ladderons.csv` 这类列式基因表从 `设计中/app/ladderon-node-info.js` 开始；右侧显示从 `设计中/app/ui.js` 开始。主控制器只负责接线。
 

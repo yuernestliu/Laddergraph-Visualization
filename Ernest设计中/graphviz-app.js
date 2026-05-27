@@ -26,6 +26,7 @@ import { createEditModeController } from "./app/edit-mode.js";
 import { GraphTabStateStore } from "./app/graph-tab-state-store.js";
 import { buildLadderonNodeInfoIndex } from "./app/ladderon-node-info.js";
 import { clampLayerDepth, getLayerDepthLabel, getSuggestedLayerDepth, getTrimmedLayerCount } from "./app/layer-utils.js";
+import { createRefineModeController } from "./app/refine-mode/refine-controller.js";
 import {
   renderGraphTabs as renderGraphTabsUi,
   setStatus as setStatusUi,
@@ -72,6 +73,7 @@ const nodeSizeModeSelect = document.getElementById("nodeSizeModeSelect");
 const nodeSizeModeInfo = document.getElementById("nodeSizeModeInfo");
 const nodeInfoStatus = document.getElementById("nodeInfoStatus");
 const editModeBtn = document.getElementById("editModeBtn");
+const refineModeBtn = document.getElementById("refineModeBtn");
 const minComponentSizeInput = document.getElementById("minComponentSizeInput");
 const minComponentSizeDownBtn = document.getElementById("minComponentSizeDownBtn");
 const minComponentSizeUpBtn = document.getElementById("minComponentSizeUpBtn");
@@ -88,16 +90,35 @@ const nodeDetailBody = document.getElementById("nodeDetailBody");
 const networkShell = document.getElementById("networkShell");
 const networkEl = document.getElementById("network");
 
+let refineModeController = null;
 const renderer = new GraphvizSvgRenderer(networkEl, {
-  onSelectionChange: (nodeId) => updateSelectedNodeDetail(nodeId),
+  onSelectionChange: (nodeId) => {
+    updateSelectedNodeDetail(nodeId);
+    refineModeController?.setSelectedNode(nodeId);
+  },
 });
 const tabStateStore = new GraphTabStateStore();
 export const editModeController = createEditModeController({
   rootEl: networkShell,
   toggleButton: editModeBtn,
   disabledRoot: appRoot,
+  onChange: ({ enabled }) => {
+    if (enabled) refineModeController?.setEnabled(false);
+  },
 });
 editModeController.mount();
+
+refineModeController = createRefineModeController({
+  rootEl: networkShell,
+  toggleButton: refineModeBtn,
+  disabledRoot: appRoot,
+  onChange: ({ enabled }) => {
+    if (enabled) editModeController.setEnabled(false);
+  },
+  onProjectionChange: ({ reason }) => handleRefineProjectionChange(reason),
+});
+refineModeController.mount();
+export { refineModeController };
 
 if (nodeSizeModeSelect) {
   nodeSizeModeSelect.value = DEFAULT_NODE_SIZE_MODE;
@@ -168,6 +189,10 @@ function getCurrentViewKey() {
   return buildViewKey(currentLayerDepth);
 }
 
+function getRefineProjectionSignature() {
+  return refineModeController?.getProjectionSignature() || "refine:none";
+}
+
 function buildViewKey(layerDepth = currentLayerDepth) {
   return [
     currentEffectiveLayoutMode,
@@ -175,6 +200,7 @@ function buildViewKey(layerDepth = currentLayerDepth) {
     nodeTextMode,
     labelFontSize,
     nodeSizeMode,
+    getRefineProjectionSignature(),
     layerDepth <= 0 ? "depth:all" : `depth:-${layerDepth}`,
   ].join("|");
 }
@@ -186,6 +212,7 @@ function buildRenderKey(renderedDepth = currentRenderedLayerDepth) {
     nodeTextMode,
     labelFontSize,
     nodeSizeMode,
+    getRefineProjectionSignature(),
     renderedDepth <= 0 ? "render:all" : `render:-${renderedDepth}`,
   ].join("|");
 }
@@ -215,6 +242,7 @@ function clearGraph() {
   currentNodeDetailStatus = "点击图中的节点查看 CSV 详情。";
   selectedNodeId = null;
   tabStateStore.reset();
+  refineModeController?.clear();
   renderer.clear();
   updateMinComponentSizeInfo();
   updateLabelFontSizeInfo();
@@ -598,8 +626,14 @@ async function requestSvgRender(dot, engine) {
 function primeRenderableComponent(activeTab) {
   currentTabBaseSubgraph = getSubgraphForDisplayComponent(currentDisplayGraph, activeTab);
   currentRenderedLayerDepth = currentLayerDepth;
-  currentRenderedSubgraph = currentTabBaseSubgraph;
-  currentSubgraph = currentTabBaseSubgraph;
+  currentRenderedSubgraph = refineModeController?.projectGraph(currentTabBaseSubgraph) || currentTabBaseSubgraph;
+  currentSubgraph = currentRenderedSubgraph;
+}
+
+function handleRefineProjectionChange(reason = "") {
+  if (!sourceParsedGraph) return;
+  captureCurrentTabViewState();
+  renderActiveGraph(reason ? `已应用精修：${reason}` : "已应用精修");
 }
 
 async function renderActiveGraph(statusPrefix = "") {
@@ -700,6 +734,7 @@ function renderGraph(statusPrefix = "") {
     sourceParsedGraph = sanitizeParsedGraph(parseDot(currentDotText));
     currentGraphStats = summarizeGraph(sourceParsedGraph);
     tabStateStore.reset();
+    refineModeController?.clear();
     layerDepthIsAuto = true;
     refreshLayerState({ resetDepth: true });
     rebuildDisplayComponents({ preserveActive: false });
