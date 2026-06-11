@@ -2,14 +2,14 @@
 
 ## Purpose
 
-`gene-pair-export/` owns the two-node gene export feature.
+`gene-pair-export/` owns both single-node and two-node gene export.
 
 User workflow:
 
 1. Click one ladderon/node.
-2. Hold `Ctrl` and click another ladderon/node.
-3. The right detail panel shows an export button.
-4. The button downloads a CSV containing:
+2. The right detail panel immediately allows exporting that node's genes/items.
+3. Optionally hold `Ctrl`/`Command` and click another ladderon/node.
+4. The two-node export downloads a CSV containing:
    - genes/items in the first selected node;
    - genes/items in the second selected node;
    - their intersection;
@@ -44,7 +44,14 @@ Public methods:
 
 ## CSV Format
 
-The exported CSV has four side-by-side columns:
+The single-node CSV has one column:
+
+```csv
+<node id> 所有集
+<gene from node>
+```
+
+The two-node CSV has four side-by-side columns:
 
 ```csv
 <first node id> 所有集,<second node id> 所有集,交集,并集
@@ -63,7 +70,8 @@ The module expects `getNodeDetail(nodeId)` to return one of:
 - row-style details with `detail.characters`
 - fallback `detail.rawDetail`
 
-Current primary example is `00_20_ladderons.csv`, parsed by `app/ladderon-node-info.js`.
+Current primary format is JSON node information such as `03_300_ladderons.json`, parsed by
+`app/json-node-details.js`. Legacy CSV node information remains supported.
 
 ## What Not To Do
 

@@ -439,8 +439,13 @@
         line-height: 1.4;
       }
 
+      .gene-pair-export-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
       .gene-pair-export-button {
-        justify-self: start;
         background: #1971c2;
         border-color: #1864ab;
         color: #fff;
@@ -589,7 +594,7 @@
               <div class="row">
                 <input id="fileInput" type="file" accept=".gv,.dot,.txt" />
                 <button id="renderBtn" class="primary compact-btn">渲染</button>
-                <input id="nodeDetailCsvInput" type="file" accept=".csv,text/csv" hidden />
+                <input id="nodeDetailFileInput" type="file" accept=".json,.csv,application/json,text/csv" hidden />
                 <button id="importNodeDetailCsvBtn" class="primary compact-btn" type="button">导入节点信息</button>
               </div>
               <p id="nodeInfoStatus" class="hint node-info-status">节点信息：无</p>
@@ -690,7 +695,7 @@
           </div>
           <aside class="node-detail-panel" aria-label="节点详情">
             <h2 id="nodeDetailTitle" class="node-detail-title">未选择节点</h2>
-            <p id="nodeDetailMeta" class="node-detail-meta">点击图中的节点查看 CSV 详情。</p>
+            <p id="nodeDetailMeta" class="node-detail-meta">点击图中的节点查看节点信息详情。</p>
             <p id="nodeDetailBody" class="node-detail-body" hidden></p>
             <div id="genePairExportPanel"></div>
           </aside>

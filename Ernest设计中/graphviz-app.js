@@ -21,12 +21,12 @@ import {
   clampMinComponentSize,
   getSubgraphForDisplayComponent,
 } from "./app/display-components.js";
-import { buildNodeDetailIndex as buildRowNodeDetailIndex, getNodeDetail } from "./app/csv-node-details.js";
+import { getNodeDetail } from "./app/csv-node-details.js";
 import { createEditModeController } from "./app/edit-mode.js";
 import { createGenePairExportController } from "./app/gene-pair-export/gene-pair-export.js";
 import { GraphTabStateStore } from "./app/graph-tab-state-store.js";
-import { buildLadderonNodeInfoIndex } from "./app/ladderon-node-info.js";
 import { clampLayerDepth, getLayerDepthLabel, getSuggestedLayerDepth, getTrimmedLayerCount } from "./app/layer-utils.js";
+import { buildBestNodeDetailIndex, getNodeInfoCandidatesForGraph } from "./app/node-info-source.js";
 import { createRefineModeController } from "./app/refine-mode/refine-controller.js";
 import {
   renderGraphTabs as renderGraphTabsUi,
@@ -51,7 +51,7 @@ const NODE_TEXT_MODES = ["label", "id", "none"];
 
 const fileInput = document.getElementById("fileInput");
 const renderBtn = document.getElementById("renderBtn");
-const nodeDetailCsvInput = document.getElementById("nodeDetailCsvInput");
+const nodeDetailFileInput = document.getElementById("nodeDetailFileInput");
 const importNodeDetailCsvBtn = document.getElementById("importNodeDetailCsvBtn");
 const appRoot = document.getElementById("appRoot");
 const statusEl = document.getElementById("status");
@@ -171,7 +171,7 @@ let currentRenderToken = 0;
 let currentRenderAbortController = null;
 let currentNodeDetailIndex = null;
 let currentNodeDetailSource = "";
-let currentNodeDetailStatus = "点击图中的节点查看 CSV 详情。";
+let currentNodeDetailStatus = "点击图中的节点查看节点信息详情。";
 let selectedNodeId = null;
 
 function setStatus(message, isError = false) {
@@ -251,7 +251,7 @@ function clearGraph() {
   layerDepthIsAuto = true;
   currentNodeDetailIndex = null;
   currentNodeDetailSource = "";
-  currentNodeDetailStatus = "点击图中的节点查看 CSV 详情。";
+  currentNodeDetailStatus = "点击图中的节点查看节点信息详情。";
   selectedNodeId = null;
   tabStateStore.reset();
   refineModeController?.clear();
@@ -333,7 +333,7 @@ function updateMinComponentSizeInfo() {
 function updateSelectedNodeDetail(nodeId = selectedNodeId) {
   selectedNodeId = nodeId || null;
   const detail = selectedNodeId ? getNodeDetail(currentNodeDetailIndex, selectedNodeId) : null;
-  const hasDetailCsv = Boolean(currentNodeDetailIndex);
+  const hasNodeInfo = Boolean(currentNodeDetailIndex);
 
   updateNodeDetailPanel(
     {
@@ -344,65 +344,30 @@ function updateSelectedNodeDetail(nodeId = selectedNodeId) {
     {
       nodeId: selectedNodeId,
       detail,
-      csvStatus: currentNodeDetailStatus,
-      emptyMessage: currentNodeDetailStatus || "点击图中的节点查看 CSV 详情。",
-      missingMessage: hasDetailCsv
-        ? `CSV 中没有找到 ID ${selectedNodeId}。`
+      detailStatus: currentNodeDetailStatus,
+      emptyMessage: currentNodeDetailStatus || "点击图中的节点查看详情。",
+      missingMessage: hasNodeInfo
+        ? `节点信息中没有找到 ID ${selectedNodeId}。`
         : currentNodeDetailStatus,
     },
   );
 }
 
-function getGraphBaseName(sourceName) {
-  const filename = String(sourceName || "")
-    .split(/[\\/]/)
-    .filter(Boolean)
-    .pop() || "";
-  return filename.replace(/\.(gv|dot|txt)$/i, "");
-}
-
-function getCsvCandidatesForGraph(sourceName) {
-  const baseName = getGraphBaseName(sourceName);
-  if (!baseName) return [];
-
-  const candidates = [];
-  const sourcePath = String(sourceName || "");
-  const directory = sourcePath.includes("/")
-    ? sourcePath.slice(0, sourcePath.lastIndexOf("/") + 1)
-    : "";
-
-  if (directory) {
-    candidates.push(`${directory}${baseName}.csv`);
-  }
-  candidates.push(`./graphs/${baseName}.csv`);
-  candidates.push(`./${baseName}.csv`);
-
-  return Array.from(new Set(candidates));
-}
-
-function buildBestNodeDetailIndex(csvText) {
-  const ladderonIndex = buildLadderonNodeInfoIndex(csvText);
-  if (ladderonIndex.supported && ladderonIndex.entriesById.size > 0) {
-    return ladderonIndex;
-  }
-  return buildRowNodeDetailIndex(csvText);
-}
-
 async function loadNodeDetailsForGraph(sourceName) {
   currentNodeDetailIndex = null;
   currentNodeDetailSource = "";
-  currentNodeDetailStatus = "正在查找同名 CSV...";
+  currentNodeDetailStatus = "正在查找节点信息 JSON/CSV...";
   updateNodeInfoStatus();
   genePairExportController?.refresh();
   updateSelectedNodeDetail(null);
 
-  for (const candidate of getCsvCandidatesForGraph(sourceName)) {
+  for (const candidate of getNodeInfoCandidatesForGraph(sourceName)) {
     try {
       const response = await fetch(encodeURI(candidate), { cache: "no-store" });
       if (!response.ok) continue;
 
-      const csvText = await response.text();
-      currentNodeDetailIndex = buildBestNodeDetailIndex(csvText);
+      const nodeInfoText = await response.text();
+      currentNodeDetailIndex = buildBestNodeDetailIndex(nodeInfoText, candidate);
       currentNodeDetailSource = candidate;
       currentNodeDetailStatus =
         `已加载 ${candidate}；${currentNodeDetailIndex.entriesById.size} 条详情。`;
@@ -411,11 +376,11 @@ async function loadNodeDetailsForGraph(sourceName) {
       updateSelectedNodeDetail(selectedNodeId);
       return;
     } catch (error) {
-      console.warn(`Failed to load CSV details from ${candidate}:`, error);
+      console.warn(`Failed to load node details from ${candidate}:`, error);
     }
   }
 
-  currentNodeDetailStatus = "没有找到同名 CSV。";
+  currentNodeDetailStatus = "没有找到可用的节点信息 JSON/CSV。";
   updateNodeInfoStatus();
   genePairExportController?.refresh();
   updateSelectedNodeDetail(selectedNodeId);
@@ -425,8 +390,8 @@ async function loadNodeDetailsFromFile(file) {
   if (!file) return;
 
   try {
-    const csvText = await file.text();
-    currentNodeDetailIndex = buildBestNodeDetailIndex(csvText);
+    const nodeInfoText = await file.text();
+    currentNodeDetailIndex = buildBestNodeDetailIndex(nodeInfoText, file.name);
     currentNodeDetailSource = file.name;
     currentNodeDetailStatus =
       `已导入节点信息：${file.name}；${currentNodeDetailIndex.entriesById.size} 条详情。`;
@@ -829,15 +794,15 @@ fileInput.addEventListener("change", async (event) => {
   }
 });
 
-if (importNodeDetailCsvBtn && nodeDetailCsvInput) {
+if (importNodeDetailCsvBtn && nodeDetailFileInput) {
   importNodeDetailCsvBtn.addEventListener("click", () => {
-    nodeDetailCsvInput.click();
+    nodeDetailFileInput.click();
   });
 
-  nodeDetailCsvInput.addEventListener("change", async (event) => {
+  nodeDetailFileInput.addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
     await loadNodeDetailsFromFile(file);
-    nodeDetailCsvInput.value = "";
+    nodeDetailFileInput.value = "";
   });
 }
 

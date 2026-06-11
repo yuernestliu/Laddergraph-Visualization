@@ -298,7 +298,7 @@ export function updateNodeDetailPanel(detailEls, options) {
   const {
     nodeId,
     detail,
-    csvStatus,
+    detailStatus,
     emptyMessage,
     missingMessage,
   } = options;
@@ -307,7 +307,7 @@ export function updateNodeDetailPanel(detailEls, options) {
 
   if (!nodeId) {
     nodeDetailTitle.textContent = "未选择节点";
-    nodeDetailMeta.textContent = emptyMessage || csvStatus || "点击图中的节点查看 CSV 详情。";
+    nodeDetailMeta.textContent = emptyMessage || detailStatus || "点击图中的节点查看节点信息详情。";
     nodeDetailBody.textContent = "";
     nodeDetailBody.hidden = true;
     return;
@@ -316,7 +316,7 @@ export function updateNodeDetailPanel(detailEls, options) {
   nodeDetailTitle.textContent = `ID ${nodeId}`;
 
   if (!detail) {
-    nodeDetailMeta.textContent = missingMessage || csvStatus || "CSV 中没有找到这个 ID。";
+    nodeDetailMeta.textContent = missingMessage || detailStatus || "节点信息中没有找到这个 ID。";
     nodeDetailBody.textContent = "";
     nodeDetailBody.hidden = true;
     return;

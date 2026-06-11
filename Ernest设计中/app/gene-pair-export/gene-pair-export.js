@@ -90,6 +90,10 @@ function makeExportRows(firstNodeId, secondNodeId, firstGenes, secondGenes, inte
   return rows;
 }
 
+function makeSingleExportRows(nodeId, genes) {
+  return [[`${nodeId} 所有集`], ...genes.map((gene) => [gene])];
+}
+
 function makePanel(documentRef) {
   const panel = documentRef.createElement("div");
   panel.className = "gene-pair-export";
@@ -97,20 +101,30 @@ function makePanel(documentRef) {
 
   const title = documentRef.createElement("h3");
   title.className = "gene-pair-export-title";
-  title.textContent = "双节点基因导出";
+  title.textContent = "节点基因导出";
 
   const meta = documentRef.createElement("p");
   meta.className = "gene-pair-export-meta";
-  meta.textContent = "先点击一个梯元，再按 Ctrl 点击另一个梯元。";
+  meta.textContent = "点击一个梯元即可导出；按 Ctrl 点击另一个梯元可比较两者。";
 
-  const button = documentRef.createElement("button");
-  button.type = "button";
-  button.className = "gene-pair-export-button";
-  button.textContent = "导出基因交集 CSV";
-  button.disabled = true;
+  const actions = documentRef.createElement("div");
+  actions.className = "gene-pair-export-actions";
 
-  panel.append(title, meta, button);
-  return { panel, meta, button };
+  const singleButton = documentRef.createElement("button");
+  singleButton.type = "button";
+  singleButton.className = "gene-pair-export-button";
+  singleButton.textContent = "导出当前梯元 CSV";
+  singleButton.disabled = true;
+
+  const pairButton = documentRef.createElement("button");
+  pairButton.type = "button";
+  pairButton.className = "gene-pair-export-button";
+  pairButton.textContent = "导出双节点集合 CSV";
+  pairButton.disabled = true;
+
+  actions.append(singleButton, pairButton);
+  panel.append(title, meta, actions);
+  return { panel, meta, singleButton, pairButton };
 }
 
 export function createGenePairExportController(options = {}) {
@@ -121,11 +135,19 @@ export function createGenePairExportController(options = {}) {
     documentRef = document,
   } = options;
 
-  const { panel, meta, button } = makePanel(documentRef);
+  const { panel, meta, singleButton, pairButton } = makePanel(documentRef);
   let firstNodeId = null;
   let secondNodeId = null;
 
   panelRoot?.append(panel);
+
+  function getPrimaryData() {
+    if (!firstNodeId) return null;
+    return {
+      nodeId: firstNodeId,
+      genes: getDetailItems(getNodeDetail(firstNodeId)),
+    };
+  }
 
   function getPairData() {
     if (!firstNodeId || !secondNodeId) return null;
@@ -150,19 +172,25 @@ export function createGenePairExportController(options = {}) {
   }
 
   function updatePanel() {
+    const primaryData = getPrimaryData();
     const pairData = getPairData();
     panel.hidden = !firstNodeId;
 
     if (!firstNodeId) {
-      meta.textContent = "先点击一个梯元，再按 Ctrl 点击另一个梯元。";
-      button.disabled = true;
+      meta.textContent = "点击一个梯元即可导出；按 Ctrl 点击另一个梯元可比较两者。";
+      singleButton.disabled = true;
+      pairButton.disabled = true;
       updateRendererMarks();
       return;
     }
 
+    singleButton.disabled = primaryData.genes.length === 0;
+
     if (!secondNodeId) {
-      meta.textContent = `第一选择：${firstNodeId}。按 Ctrl 点击另一个梯元进行二次选择。`;
-      button.disabled = true;
+      meta.textContent =
+        `当前梯元：${firstNodeId}，共 ${primaryData.genes.length} 个基因。` +
+        "按 Ctrl 点击另一个梯元可进行双节点导出。";
+      pairButton.disabled = true;
       updateRendererMarks();
       return;
     }
@@ -177,7 +205,7 @@ export function createGenePairExportController(options = {}) {
       `${secondNodeId}: ${pairData.secondGenes.length} 个；` +
       `交集 ${pairData.intersectionGenes.length} 个；` +
       `并集 ${pairData.unionGenes.length} 个。`;
-    button.disabled = !hasExportData;
+    pairButton.disabled = !hasExportData;
     updateRendererMarks();
   }
 
@@ -207,6 +235,15 @@ export function createGenePairExportController(options = {}) {
     return true;
   }
 
+  function exportCurrentNode() {
+    const primaryData = getPrimaryData();
+    if (!primaryData || primaryData.genes.length === 0) return;
+
+    const rows = makeSingleExportRows(primaryData.nodeId, primaryData.genes);
+    const filename = `node_genes_${safeFilenamePart(primaryData.nodeId)}.csv`;
+    downloadTextFile(filename, rowsToCsv(rows), documentRef);
+  }
+
   function exportCurrentPair() {
     const pairData = getPairData();
     if (!pairData) return;
@@ -224,7 +261,8 @@ export function createGenePairExportController(options = {}) {
     downloadTextFile(filename, rowsToCsv(rows), documentRef);
   }
 
-  button.addEventListener("click", exportCurrentPair);
+  singleButton.addEventListener("click", exportCurrentNode);
+  pairButton.addEventListener("click", exportCurrentPair);
 
   return {
     handleNodeClick,
@@ -235,7 +273,8 @@ export function createGenePairExportController(options = {}) {
     },
     destroy() {
       renderer?.setPairSelectionNodeIds?.([]);
-      button.removeEventListener("click", exportCurrentPair);
+      singleButton.removeEventListener("click", exportCurrentNode);
+      pairButton.removeEventListener("click", exportCurrentPair);
       panel.remove();
     },
   };

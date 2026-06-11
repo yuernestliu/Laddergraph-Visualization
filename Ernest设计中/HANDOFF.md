@@ -67,15 +67,17 @@ python3 server.py
   - 控件在“文本”区域内，形态是 `- / 数字 / +`。
   - 默认 `10`，范围 `6-24`。
   - 调整后会重新渲染，并尽量保留当前选中节点状态。
-- 节点详情 CSV 支持两类格式：
-  - 行式详情：按节点 ID 查一行，当前用于 `G7-汉字3500.csv` 这类文件，展示最右列汉字预览。
-  - 列式基因表：第一行是节点 ID，每一列是该节点的基因列表，当前示例是 `设计中/graphs/PHIRE/00_20_ladderons.csv`。
+- 节点信息现在优先使用 JSON，同时兼容旧 CSV：
+  - JSON：以节点 ID 为 key、基因数组为 value，例如 `设计中/graphs/PHIRE/03_300_ladderons.json`。
+  - 旧行式 CSV：按节点 ID 查一行，例如 `G7-汉字3500.csv`。
+  - 旧列式 CSV：第一行是节点 ID，每一列是该节点的基因列表，例如 `00_20_ladderons.csv`。
+  - 自动加载可从图名 `G2瑞金B细胞-03_300-全.gv` 推导并优先查找 `03_300_ladderons.json`。
 - “导入节点信息”按钮已放在“导入”区旁边，按钮为蓝色，并显示 `节点信息：有/无`。
-- 双节点基因导出已经隔离成独立模块组。
-  - 普通点击一个梯元作为第一选择。
+- 单节点与双节点基因导出已经隔离成独立模块组。
+  - 普通点击一个梯元后，可立即导出它自己的基因列表。
   - 按住 `Ctrl`/`Command` 点击另一个梯元作为第二选择。
-  - 右侧详情面板会显示导出按钮。
-  - CSV 包含两个梯元各自的基因列表，以及两者交集基因。
+  - 右侧详情面板会显示单节点和双节点导出按钮。
+  - 双节点 CSV 包含两个梯元各自的基因列表、交集与并集。
 - 编辑模式已经有独立接口，但真实编辑功能尚未实现。
   - 进入编辑模式后，网络显示窗口出现红色边框。
   - 除编辑模式控件与缩放按钮外，其他按钮/输入/下拉会强制禁用。
@@ -125,17 +127,27 @@ python3 server.py
   - 适合 `G7-汉字3500.csv` 这类“每行一个节点详情”的文件。
 
 - `设计中/app/ladderon-node-info.js`
-  - 列式节点信息解析模块。
+  - 旧列式 CSV 节点信息解析模块。
   - 当前用于 `00_20_ladderons.csv` 这类“第一行是节点 ID、每列是该节点基因列表”的文件。
   - 这是后续多人分模块设计节点信息读取/计算功能的主要扩展点之一。
 
+- `设计中/app/json-node-details.js`
+  - 新 JSON 节点信息解析模块。
+  - 当前格式是 `{ "<node id>": ["gene A", "gene B"] }`。
+
+- `设计中/app/node-info-source.js`
+  - 统一选择 JSON/CSV 解析器，并生成图对应的节点信息候选路径。
+  - JSON 优先，旧 CSV 作为兼容回退。
+  - 节点信息文件命名或自动查找规则应优先改这里。
+
 - `设计中/app/gene-pair-export/`
-  - **双节点基因导出的主文件夹。后续 Agent 如果要编辑这个功能，优先读 `设计中/app/gene-pair-export/README.md`。**
+  - **单节点与双节点基因导出的主文件夹。后续 Agent 如果要编辑这个功能，优先读 `设计中/app/gene-pair-export/README.md`。**
   - 当前负责：
     - `createGenePairExportController(...)`
+    - 单节点选择后立即导出
     - Ctrl/Command 二次选择
-    - 右侧导出按钮
-    - 导出 `selected_1`、`selected_2`、`intersection` 三类 CSV 行
+    - 右侧单节点与双节点导出按钮
+    - 双节点导出四列：第一节点、第二节点、交集、并集
   - 不负责 CSV 文件读取；节点详情来自 `graphviz-app.js` 传入的 `getNodeDetail` 回调。
 
 - `设计中/app/ui.js`
@@ -217,12 +229,14 @@ python3 server.py
   - 后续新增筛选工具时，应接入同一 display component 管线，而不是另写一套标签拆分逻辑。
 
 - 节点信息/CSV：
-  - 行式 CSV 优先改 `设计中/app/csv-node-details.js`。
-  - 列式 ladderon/基因表优先改 `设计中/app/ladderon-node-info.js`。
+  - JSON 优先改 `设计中/app/json-node-details.js`。
+  - 文件自动查找和格式选择优先改 `设计中/app/node-info-source.js`。
+  - 旧行式 CSV 优先改 `设计中/app/csv-node-details.js`。
+  - 旧列式 ladderon/基因表优先改 `设计中/app/ladderon-node-info.js`。
   - 右侧展示样式优先改 `设计中/app/ui.js`。
   - 主控制器 `graphviz-app.js` 只负责选择合适的解析器并把结果传给 UI。
 
-- 双节点基因导出：
+- 节点基因导出：
   - 功能入口在 `设计中/app/gene-pair-export/`。
   - 后续如果要改导出列、交集算法、文件名或支持多个节点，优先改这个文件夹。
   - 不要在这个模块里重新解析 CSV 或重新 fetch 文件。
@@ -252,7 +266,7 @@ python3 server.py
 - 不要把“精修模式具体功能”写进 `graphviz-app.js`；精修逻辑应留在 `设计中/app/refine-mode/`。
 - 不要让编辑模式和精修模式同时开启。
 - 不要把节点信息解析继续堆进 `graphviz-app.js`；行式和列式 CSV 都应留在独立模块。
-- 不要把双节点基因导出逻辑写进 `graphviz-app.js`；应留在 `设计中/app/gene-pair-export/`。
+- 不要把节点基因导出逻辑写进 `graphviz-app.js`；应留在 `设计中/app/gene-pair-export/`。
 - 不要把文本模式恢复成循环按钮；当前要求是窄下拉菜单。
 - 不要在没有提醒用户的情况下静默做上下文压缩。
 
@@ -279,10 +293,12 @@ python3 server.py
    - 新筛选条件应作为参数进入同一管线，最终仍输出一组可显示连通图。
 
 4. 如果继续做节点信息：
-   - 行式 CSV：改 `设计中/app/csv-node-details.js`。
-   - 列式基因表：改 `设计中/app/ladderon-node-info.js`。
+   - JSON：改 `设计中/app/json-node-details.js`。
+   - 自动查找/格式选择：改 `设计中/app/node-info-source.js`。
+   - 旧行式 CSV：改 `设计中/app/csv-node-details.js`。
+   - 旧列式基因表：改 `设计中/app/ladderon-node-info.js`。
    - 右侧详情展示：改 `设计中/app/ui.js`。
-   - 示例文件：`设计中/graphs/PHIRE/00_20_ladderons.csv`。
+   - 示例文件：`设计中/graphs/PHIRE/03_300_ladderons.json`。
 
 5. 如果继续做双节点导出：
    - 先读 `设计中/app/gene-pair-export/README.md`。
@@ -298,6 +314,8 @@ python3 server.py
    - `node --check 设计中/graphviz-core.js`
    - `node --check 设计中/graphviz-svg-renderer.js`
    - `node --check 设计中/app/ui.js`
+   - `node --check 设计中/app/json-node-details.js`
+   - `node --check 设计中/app/node-info-source.js`
    - `node --check 设计中/app/ladderon-node-info.js`
    - `node --check 设计中/app/gene-pair-export/gene-pair-export.js`
    - `node --check 设计中/app/edit-mode/edit-controller.js`
@@ -359,8 +377,8 @@ python3 server.py
 
 如果任务是精修 refine mode：直接从 `设计中/app/refine-mode/README.md` 开始。精修模式由 `refine-controller.js` 接入，状态在 `refine-state.js`，显示投影在 `refine-projection.js`，工具栏在 `refine-toolbar.js`。精修只能修改当前显示投影，不能改源图。编辑模式和精修模式必须保持互斥。
 
-如果任务是节点信息：行式 CSV 从 `设计中/app/csv-node-details.js` 开始；`00_20_ladderons.csv` 这类列式基因表从 `设计中/app/ladderon-node-info.js` 开始；右侧显示从 `设计中/app/ui.js` 开始。主控制器只负责接线。
+如果任务是节点信息：JSON 从 `设计中/app/json-node-details.js` 开始；自动查找和格式选择从 `设计中/app/node-info-source.js` 开始；旧 CSV 分别由 `csv-node-details.js` 和 `ladderon-node-info.js` 兼容；右侧显示从 `设计中/app/ui.js` 开始。主控制器只负责接线。
 
-如果任务是双节点基因导出：直接从 `设计中/app/gene-pair-export/README.md` 和 `设计中/app/gene-pair-export/gene-pair-export.js` 开始。交互是普通点击第一梯元，再按 `Ctrl`/`Command` 点击第二梯元。导出 CSV 包含 `selected_1`、`selected_2`、`intersection` 三类记录。不要在这个模块里重新读 CSV；通过 `getNodeDetail(nodeId)` 使用主程序已经加载的节点详情。
+如果任务是节点基因导出：直接从 `设计中/app/gene-pair-export/README.md` 和 `设计中/app/gene-pair-export/gene-pair-export.js` 开始。普通点击后可导出当前梯元；再按 `Ctrl`/`Command` 点击第二梯元，可导出两个节点各自的基因列表、交集与并集。不要在这个模块里重新读 CSV/JSON；通过 `getNodeDetail(nodeId)` 使用主程序已经加载的节点详情。
 
 如果任务是显示过滤：从 `设计中/app/display-components.js` 开始，保持“源大图 + 过滤器 + 可显示连通图”的共同接口。不要为新筛选工具另写一套标签页/连通图逻辑。

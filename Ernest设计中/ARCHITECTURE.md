@@ -57,8 +57,20 @@
   - 后续新增筛选工具时，优先接入这里的 display component 管线。
 
 - `app/csv-node-details.js`
-  - 管理同名 CSV 的解析和按节点 ID 查询详情。
+  - 管理旧行式 CSV 的解析和按节点 ID 查询详情。
   - 这里不直接更新 DOM。
+
+- `app/json-node-details.js`
+  - 管理 JSON 节点信息解析。
+  - 当前 JSON 格式是 `{ "<node id>": ["gene A", "gene B"] }`。
+  - JSON 是新节点信息格式；旧 CSV 仅作为兼容格式保留。
+
+- `app/node-info-source.js`
+  - 统一节点信息来源：
+    - 优先查找和解析 JSON；
+    - 兼容旧 CSV；
+    - 可从 `G2瑞金B细胞-03_300-全.gv` 推导 `03_300_ladderons.json`。
+  - 后续调整节点信息命名规则或文件优先级时，优先改这里。
 
 - `app/edit-mode/`
   - 管理编辑模式入口和模式边界：
@@ -82,11 +94,11 @@
   - 后续如果要实现更复杂的隐藏/折叠/穿透逻辑，优先读 `app/refine-mode/README.md`。
 
 - `app/gene-pair-export/`
-  - 管理双节点基因导出：
-    - 普通点击作为第一选择
+  - 管理单节点与双节点基因导出：
+    - 普通点击后可立即导出当前节点
     - `Ctrl`/`Command` 点击另一个节点作为第二选择
-    - 右侧详情面板显示导出按钮
-    - 导出两个节点的基因列表及交集 CSV
+    - 右侧详情面板显示单节点和双节点导出按钮
+    - 双节点 CSV 导出两个节点的基因列表、交集与并集
   - 后续如果要调整导出字段、文件名或交集规则，优先读 `app/gene-pair-export/README.md`。
 
 - `app/ui.js`
@@ -173,7 +185,7 @@
   - `controller.clear()`
   - 允许精修模式内继续可用的控件应放在带 `data-refine-mode-control` 的元素内。
 
-- 双节点基因导出接口：
+- 节点基因导出接口：
   - `createGenePairExportController({ panelRoot, renderer, getNodeDetail })`
   - `controller.handleNodeClick({ nodeId, event, activeSelectionNodeId })`
   - `controller.setPrimaryNode(nodeId)`
