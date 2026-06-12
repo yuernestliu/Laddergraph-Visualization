@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Graph 可视化交互台</title>
+    <style>
+      :root {
+        --bg: #f4f1ea;
+        --panel: #fffdf8;
+        --ink: #202124;
+        --muted: #6b7280;
+        --line: #d9d2c3;
+        --accent: #0b7285;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "PingFang SC", "Noto Sans SC", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 10% 0%, #e8f2f4 0%, transparent 35%),
+          radial-gradient(circle at 90% 100%, #f8ead6 0%, transparent 40%),
+          var(--bg);
+      }
+
+      .app {
+        width: min(1600px, calc(100vw - 32px));
+        margin: 12px auto;
+        padding: 0 0 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 12px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.04);
+      }
+
+      .control-sections {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 8px 12px;
+      }
+
+      .control-panel-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: stretch;
+      }
+
+      .control-sections .section {
+        min-width: 0;
+      }
+
+      .control-sections .row {
+        flex-wrap: nowrap;
+      }
+
+      .control-sections .row > * {
+        min-width: 0;
+      }
+
+      .compact-btn {
+        padding: 5px 8px;
+        font-size: 12px;
+      }
+
+      .range-control {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        width: 100%;
+      }
+
+      .range-control input[type="range"] {
+        flex: 1 1 auto;
+        min-width: 120px;
+        accent-color: var(--accent);
+      }
+
+      .range-control .range-value {
+        flex: 0 0 auto;
+        min-width: 52px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .component-size-control {
+        display: grid;
+        grid-template-columns: auto minmax(54px, 76px) auto;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .component-size-control input[type="number"] {
+        width: 100%;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stepper-btn {
+        min-width: 32px;
+        padding: 6px 8px;
+      }
+
+      .quick-picks {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+      }
+
+      .quick-picks button {
+        padding: 4px 7px;
+        font-size: 12px;
+        border-radius: 999px;
+      }
+
+      .quick-picks button.active {
+        color: #fff;
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+
+      .edit-mode-launcher {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-left: 14px;
+        border-left: 1px solid rgba(185, 177, 163, 0.72);
+      }
+
+      #editModeBtn {
+        min-width: 78px;
+        min-height: 36px;
+        font-weight: 700;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+
+      h2 {
+        margin: 0 0 4px;
+        font-size: 13px;
+      }
+
+      .section {
+        margin: 0;
+      }
+
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .tab-strip {
+        display: flex;
+        gap: 8px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        margin-bottom: 6px;
+      }
+
+      .tab-strip[hidden] {
+        display: none;
+      }
+
+      .component-select {
+        width: min(420px, 100%);
+        margin-bottom: 6px;
+      }
+
+      .tab-button {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 10px;
+        background: #fff;
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .tab-button.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      select,
+      button,
+      input[type="file"] {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 6px 9px;
+        background: #fff;
+        color: var(--ink);
+      }
+
+        button {
+          cursor: pointer;
+          border-color: #b5d7dd;
+        }
+
+        button:disabled,
+        select:disabled,
+        input:disabled {
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+      #fileInput {
+        width: 250px;
+        flex: 0 1 250px;
+        max-width: 100%;
+      }
+
+      #renderBtn {
+        flex: 0 0 auto;
+        white-space: nowrap;
+      }
+
+      #layoutSelect {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
+      #applyLayoutBtn {
+        flex: 0 0 auto;
+        white-space: nowrap;
+      }
+
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+
+      #network {
+        height: min(84vh, 980px);
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
+        cursor: grab;
+        user-select: none;
+        touch-action: none;
+      }
+
+      #network.is-panning {
+        cursor: grabbing;
+      }
+
+      #network.is-rendering::after {
+        content: "Graphviz 渲染中...";
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: rgba(255, 255, 255, 0.68);
+        color: var(--muted);
+        font-size: 13px;
+        letter-spacing: 0.02em;
+      }
+
+      .graphviz-svg {
+        pointer-events: auto;
+      }
+
+      .graphviz-svg g.node {
+        cursor: pointer;
+      }
+
+      .graphviz-svg g.node text,
+      .graphviz-svg g.edge text {
+        transition: fill 120ms ease;
+      }
+
+      .graphviz-svg g.node ellipse,
+      .graphviz-svg g.node circle,
+      .graphviz-svg g.node polygon,
+      .graphviz-svg g.node path,
+      .graphviz-svg g.node rect,
+      .graphviz-svg g.edge path,
+      .graphviz-svg g.edge polygon,
+      .graphviz-svg g.edge polyline {
+        transition:
+          fill 120ms ease,
+          stroke 120ms ease,
+          stroke-width 120ms ease;
+      }
+
+
+      .graphviz-svg g.node.is-mini text {
+        display: none;
+      }
+
+      .graphviz-svg g.node.is-extraction-selected ellipse,
+      .graphviz-svg g.node.is-extraction-selected circle,
+      .graphviz-svg g.node.is-extraction-selected polygon,
+      .graphviz-svg g.node.is-extraction-selected path,
+      .graphviz-svg g.node.is-extraction-selected rect {
+        stroke: #e60023 !important;
+        stroke-width: 3 !important;
+      }
+
+      .graphviz-svg g.node.is-mini ellipse,
+      .graphviz-svg g.node.is-mini circle,
+      .graphviz-svg g.node.is-mini polygon,
+      .graphviz-svg g.node.is-mini path,
+      .graphviz-svg g.node.is-mini rect {
+        fill: #d0d0d0 !important;
+        stroke: #b7b7b7 !important;
+        stroke-width: 0.8 !important;
+      }
+
+
+      .network-shell {
+        position: relative;
+      }
+
+      .graph-workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 10px;
+        align-items: stretch;
+      }
+
+      .node-detail-panel {
+        min-height: min(84vh, 980px);
+        max-height: min(84vh, 980px);
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .node-detail-title {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .node-detail-meta {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .node-detail-body {
+        margin: 0;
+        padding-top: 8px;
+        border-top: 1px solid var(--line);
+        overflow: auto;
+        font-size: 15px;
+        line-height: 1.75;
+        word-break: break-all;
+      }
+
+      .overlay-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 4;
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+      }
+
+      .layer-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: stretch;
+        padding-left: 10px;
+        border-left: 1px solid rgba(185, 177, 163, 0.72);
+      }
+
+      .layer-controls .row {
+        flex-direction: row;
+        gap: 6px;
+        flex-wrap: nowrap;
+        align-items: stretch;
+      }
+
+      .layer-controls .hint {
+        margin: 0;
+        padding: 4px 8px;
+        background: rgba(255, 253, 248, 0.9);
+        border: 1px solid rgba(217, 210, 195, 0.92);
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        max-width: 150px;
+      }
+
+      .zoom-controls {
+        display: flex;
+        flex-direction: row;
+        gap: 6px;
+        align-items: flex-start;
+      }
+
+      .zoom-controls button {
+        min-width: 38px;
+        min-height: 34px;
+        padding: 0 10px;
+        font-size: 18px;
+        line-height: 1;
+        background: rgba(232, 242, 244, 0.96);
+        border-color: #9fd0d8;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+      }
+
+      .zoom-controls button.fit-btn {
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .overlay-controls .layer-controls button {
+        font-size: 12px;
+        min-width: 0;
+        min-height: 34px;
+        padding: 0 10px;
+        background: rgba(255, 253, 248, 0.92);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+      }
+
+      #extractDepthInput {
+        width: 84px;
+      }
+
+      .hint {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 3px;
+        line-height: 1.35;
+      }
+
+      .graph-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+      }
+
+      #status {
+        font-size: 13px;
+        color: var(--muted);
+        margin: 0;
+      }
+
+      @media (max-width: 1000px) {
+        .control-panel-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .edit-mode-launcher {
+          justify-content: flex-start;
+          padding: 10px 0 0;
+          border-left: 0;
+          border-top: 1px solid rgba(185, 177, 163, 0.72);
+        }
+
+        .control-sections .row {
+          flex-wrap: wrap;
+        }
+
+        #network {
+          height: 68vh;
+        }
+
+        .graph-workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .node-detail-panel {
+          min-height: 180px;
+          max-height: 260px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="appRoot" class="app">
+      <section class="panel">
+        <div class="control-panel-layout">
+          <div class="control-sections">
+            <div class="section">
+              <h2>导入</h2>
+              <div class="row">
+                <input id="fileInput" type="file" accept=".gv,.dot,.txt" />
+                <button id="renderBtn" class="primary compact-btn">渲染</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <h2>布局</h2>
+              <div class="row">
+                <select id="layoutSelect">
+                  <option value="hierarchicalTB">层级布局（下->上）</option>
+                  <option value="hierarchicalLR">层级布局（左->右）</option>
+                  <option value="ruleBased">分层布局（组成关系递推）</option>
+                  <option value="force">力导向布局</option>
+                </select>
+                <button id="applyLayoutBtn">应用布局</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <h2>文本</h2>
+              <div class="row">
+                <button id="toggleNodeTextBtn">切换为显示 ID</button>
+              </div>
+              <p id="nodeTextModeInfo" class="hint">当前显示：Label</p>
+            </div>
+
+            <div class="section">
+              <h2>节点尺寸</h2>
+              <div class="row">
+                <select id="nodeSizeModeSelect">
+                  <option value="fixed">固定</option>
+                  <option value="sqrt" selected>sqrt(S)</option>
+                  <option value="cbrt">S^(1/3)</option>
+                  <option value="log">log(S+1)</option>
+                  <option value="linear">S</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="section">
+              <h2>最小网络规模</h2>
+              <div class="component-size-control">
+                <button id="minComponentSizeDownBtn" class="stepper-btn" type="button" aria-label="减小 M">-</button>
+                <input id="minComponentSizeInput" type="number" min="2" step="1" value="2" inputmode="numeric" />
+                <button id="minComponentSizeUpBtn" class="stepper-btn" type="button" aria-label="增大 M">+</button>
+              </div>
+              <div class="quick-picks" aria-label="常用最小网络规模">
+                <button type="button" data-min-component-size="2">&ge;2</button>
+                <button type="button" data-min-component-size="3">&ge;3</button>
+                <button type="button" data-min-component-size="5">&ge;5</button>
+                <button type="button" data-min-component-size="10">&ge;10</button>
+                <button type="button" data-min-component-size="20">&ge;20</button>
+              </div>
+              <p id="minComponentSizeInfo" class="hint">加载图后可设置。</p>
+            </div>
+          </div>
+
+          <div class="edit-mode-launcher" aria-label="编辑模式">
+            <button id="editModeBtn" type="button" aria-pressed="false" data-edit-mode-control>编辑</button>
+            <button id="refineModeBtn" type="button" aria-pressed="false" data-refine-mode-control>精修</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div id="graphTabs" class="tab-strip" hidden></div>
+        <select id="graphComponentSelect" class="component-select" hidden aria-label="选择网络"></select>
+        <div class="graph-meta">
+          <p id="graphTabsInfo" class="hint">当前显示：全图</p>
+          <p id="status" hidden></p>
+        </div>
+        <div class="graph-workspace">
+          <div id="networkShell" class="network-shell">
+            <div class="overlay-controls">
+              <div class="zoom-controls" data-edit-mode-control data-refine-mode-control>
+                <button id="zoomInBtn" type="button" aria-label="放大">+</button>
+                <button id="zoomOutBtn" type="button" aria-label="缩小">-</button>
+                <button id="fitViewBtn" type="button" class="fit-btn" aria-label="适中">适中</button>
+              </div>
+              <div class="layer-controls">
+                <div class="row">
+                  <button id="layerDepthUpBtn" class="compact-btn" type="button">深1层</button>
+                  <button id="layerDepthDownBtn" class="compact-btn" type="button">浅1层</button>
+                  <button id="layerDepthAutoBtn" class="compact-btn" type="button">合适层级</button>
+                  <button id="layerDepthAllBtn" class="compact-btn" type="button">全部层</button>
+                </div>
+                <div class="row" style="margin-top:4px">
+                  <button id="undoBtn" class="compact-btn" type="button" disabled style="display:none">← 后退(0)</button>
+                  <button id="redoBtn" class="compact-btn" type="button" disabled style="display:none">前进 →(0)</button>
+                </div>
+              </div>
+            </div>
+            <div id="network"></div>
+          </div>
+          <aside class="node-detail-panel" aria-label="节点详情">
+            <h2 id="nodeDetailTitle" class="node-detail-title">未选择节点</h2>
+            <p id="nodeDetailMeta" class="node-detail-meta">点击图中的节点查看 CSV 详情。</p>
+            <p id="nodeDetailBody" class="node-detail-body" hidden></p>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./graphviz-app.js"></script>
+  </body>
+</html>
