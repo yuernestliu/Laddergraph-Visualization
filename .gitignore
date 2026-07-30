@@ -5,3 +5,6 @@ __pycache__/
 # Common local editor metadata
 .vscode/
 .idea/
+
+# Local Finder alias
+/Laddergraph-Visualization-资料的替身
