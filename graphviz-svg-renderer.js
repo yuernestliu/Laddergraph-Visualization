@@ -1,6 +1,5 @@
 import {
   FONT_FAMILY,
-  isExternalLabelEllipseNode,
   isScalableLadderNode,
   isTargetNode,
   layeredGradientColor,
@@ -25,7 +24,6 @@ export class GraphvizSvgRenderer {
     this.currentSubgraph = null;
     this.nodeTextMode = "label";
     this.labelFontSize = 10;
-    this.isOverview = false;
     this.activeSelectionNodeId = null;
     this.nodeEntries = new Map();
     this.edgeEntries = new Map();
@@ -97,7 +95,7 @@ export class GraphvizSvgRenderer {
     return restoredViewport;
   }
 
-  render({ svgMarkup, parsed, overview, nodeTextMode, labelFontSize }) {
+  render({ svgMarkup, parsed, nodeTextMode, labelFontSize }) {
     this.clear();
 
     const svg = this.parseSvgMarkup(svgMarkup);
@@ -124,41 +122,11 @@ export class GraphvizSvgRenderer {
     this.container.replaceChildren(svg);
     this.currentSvg = svg;
     this.currentSubgraph = parsed;
-    this.isOverview = overview;
     this.nodeTextMode = nodeTextMode;
     this.labelFontSize = Math.max(6, Math.min(24, Number(labelFontSize || 10)));
 
     this.bindSvgGraph(svg, parsed);
     this.expandSvgViewToContent(svg);
-  }
-
-  setVisibleSubgraph(parsed) {
-    this.currentSubgraph = parsed;
-
-    const visibleNodeIds = new Set((parsed?.nodes || []).map((node) => String(node.id)));
-    const visibleEdgeIds = new Set(
-      (parsed?.edges || []).map((edge) => `${String(edge.from)}->${String(edge.to)}`),
-    );
-
-    for (const [nodeId, entry] of this.nodeEntries) {
-      const visible = visibleNodeIds.has(String(nodeId));
-      entry.group.style.display = visible ? "" : "none";
-      entry.group.setAttribute("aria-hidden", visible ? "false" : "true");
-    }
-
-    for (const [edgeId, entries] of this.edgeEntries) {
-      const visible = visibleEdgeIds.has(String(edgeId));
-      for (const entry of entries) {
-        entry.group.style.display = visible ? "" : "none";
-        entry.group.setAttribute("aria-hidden", visible ? "false" : "true");
-      }
-    }
-
-    const nextSelection =
-      this.activeSelectionNodeId && visibleNodeIds.has(String(this.activeSelectionNodeId))
-        ? this.activeSelectionNodeId
-        : null;
-    this.applySelectionHighlight(nextSelection);
   }
 
   fitToView() {
@@ -225,7 +193,7 @@ export class GraphvizSvgRenderer {
     }
     if (!box || !box.width || !box.height) return;
 
-    const padding = this.isOverview ? 8 : 30;
+    const padding = 30;
     const current = svg.viewBox?.baseVal;
     const currentX = current?.width ? current.x : box.x;
     const currentY = current?.height ? current.y : box.y;
@@ -245,8 +213,6 @@ export class GraphvizSvgRenderer {
   }
 
   getAutoFitMaxScale() {
-    if (this.isOverview) return 4;
-
     const nodeCount = this.currentSubgraph?.nodes?.length || 0;
     if (nodeCount <= 6) return 1.05;
     if (nodeCount <= 12) return 1.25;
@@ -279,7 +245,7 @@ export class GraphvizSvgRenderer {
       return { x: 0, y: 0, scale: 1 };
     }
 
-    const fitPadding = this.isOverview ? 12 : 8;
+    const fitPadding = 8;
     const usableWidth = Math.max(40, rect.width - fitPadding * 2);
     const usableHeight = Math.max(40, rect.height - fitPadding * 2);
     const fitScale = Math.min(usableWidth / width, usableHeight / height);
@@ -548,7 +514,7 @@ export class GraphvizSvgRenderer {
   }
 
   decorateSplitLabelNodes() {
-    if (this.isOverview || this.nodeTextMode === "none") {
+    if (this.nodeTextMode === "none") {
       for (const entry of this.nodeEntries.values()) {
         entry.group.querySelectorAll("text").forEach((text) => text.remove());
         entry.group.querySelectorAll(".codex-split-label").forEach((label) => label.remove());
@@ -573,11 +539,8 @@ export class GraphvizSvgRenderer {
       const box = shape.getBBox();
       const centerX = box.x + box.width / 2;
       const centerY = box.y + box.height / 2;
-      const parts = isTarget
-        ? this.nodeTextMode === "id"
-          ? { top: "", inner: String(nodeId) }
-          : splitDisplayLabel(nodeMeta.attrs?.label || nodeId)
-        : this.nodeTextMode === "id"
+      const parts =
+        this.nodeTextMode === "id"
           ? { top: "", inner: String(nodeId) }
           : splitDisplayLabel(nodeMeta.attrs?.label || nodeId);
 

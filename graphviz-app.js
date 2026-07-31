@@ -1,13 +1,8 @@
 import {
   DEFAULT_DOT_PATH,
-  LARGE_GRAPH_EDGE_THRESHOLD,
-  LARGE_GRAPH_NODE_THRESHOLD,
   NODE_SIZE_MODE_OPTIONS,
   applyVisibleSubgraphFilters,
   buildNodeLayerMap,
-  formatNodeSizeModeLabel,
-  getEffectiveLayoutMode,
-  getEffectiveRenderProfile,
   parseDot,
   sanitizeParsedGraph,
   serializeGraphToDot,
@@ -18,11 +13,10 @@ import {
   DEFAULT_MIN_COMPONENT_SIZE,
   MAX_INLINE_COMPONENT_TABS,
   buildDisplayComponentState,
-  clampMinComponentSize,
   getSubgraphForDisplayComponent,
 } from "./app/display-components.js";
 import { getNodeDetail } from "./app/csv-node-details.js";
-import { createEditModeController } from "./app/edit-mode.js";
+import { createEditModeController } from "./app/edit-mode/edit-controller.js";
 import { createGenePairExportController } from "./app/gene-pair-export/gene-pair-export.js";
 import { GraphTabStateStore } from "./app/graph-tab-state-store.js";
 import { clampLayerDepth, getLayerDepthLabel, getSuggestedLayerDepth, getTrimmedLayerCount } from "./app/layer-utils.js";
@@ -31,13 +25,11 @@ import { createRefineModeController } from "./app/refine-mode/refine-controller.
 import {
   renderGraphTabs as renderGraphTabsUi,
   setStatus as setStatusUi,
+  syncNodeTextModeSelect,
   updateLabelFontSizeControl,
   updateLayerDepthControls as updateLayerDepthControlsUi,
   updateMinComponentSizeControl,
   updateNodeDetailPanel,
-  updateNodeSizeModeInfo as updateNodeSizeModeInfoUi,
-  updateNodeTextModeInfo as updateNodeTextModeInfoUi,
-  updateRenderModeInfo as updateRenderModeInfoUi,
 } from "./app/ui.js";
 
 const RENDER_API_PATH = "/api/render";
@@ -63,15 +55,11 @@ const graphTabsInfo = document.getElementById("graphTabsInfo");
 const zoomInBtn = document.getElementById("zoomInBtn");
 const zoomOutBtn = document.getElementById("zoomOutBtn");
 const fitViewBtn = document.getElementById("fitViewBtn");
-const renderModeSelect = document.getElementById("renderModeSelect");
-const renderModeInfo = document.getElementById("renderModeInfo");
 const nodeTextModeSelect = document.getElementById("nodeTextModeSelect");
-const nodeTextModeInfo = document.getElementById("nodeTextModeInfo");
 const labelFontSizeInput = document.getElementById("labelFontSizeInput");
 const labelFontSizeDownBtn = document.getElementById("labelFontSizeDownBtn");
 const labelFontSizeUpBtn = document.getElementById("labelFontSizeUpBtn");
 const nodeSizeModeSelect = document.getElementById("nodeSizeModeSelect");
-const nodeSizeModeInfo = document.getElementById("nodeSizeModeInfo");
 const nodeInfoStatus = document.getElementById("nodeInfoStatus");
 const editModeBtn = document.getElementById("editModeBtn");
 const refineModeBtn = document.getElementById("refineModeBtn");
@@ -84,7 +72,6 @@ const layerDepthDownBtn = document.getElementById("layerDepthDownBtn");
 const layerDepthUpBtn = document.getElementById("layerDepthUpBtn");
 const layerDepthAutoBtn = document.getElementById("layerDepthAutoBtn");
 const layerDepthAllBtn = document.getElementById("layerDepthAllBtn");
-const layerDepthInfo = document.getElementById("layerDepthInfo");
 const nodeDetailTitle = document.getElementById("nodeDetailTitle");
 const nodeDetailMeta = document.getElementById("nodeDetailMeta");
 const nodeDetailBody = document.getElementById("nodeDetailBody");
@@ -151,8 +138,7 @@ let currentDisplayComponentState = null;
 let currentDisplayGraph = null;
 let currentGraphTabs = [];
 let activeGraphTabId = null;
-let currentRenderProfile = "full";
-let currentEffectiveLayoutMode = "hierarchicalTB";
+let currentLayoutMode = "hierarchicalTB";
 let nodeTextMode = "label";
 let labelFontSize = DEFAULT_LABEL_FONT_SIZE;
 let nodeSizeMode = DEFAULT_NODE_SIZE_MODE;
@@ -182,10 +168,6 @@ function getRequestedLayoutMode() {
   return layoutSelect?.value || "hierarchicalTB";
 }
 
-function getRequestedRenderMode() {
-  return renderModeSelect?.value || "full";
-}
-
 function getActiveGraphTab() {
   return currentGraphTabs.find((tab) => tab.id === activeGraphTabId) || null;
 }
@@ -207,8 +189,7 @@ function getRefineProjectionSignature() {
 
 function buildViewKey(layerDepth = currentLayerDepth) {
   return [
-    currentEffectiveLayoutMode,
-    currentRenderProfile,
+    currentLayoutMode,
     nodeTextMode,
     labelFontSize,
     nodeSizeMode,
@@ -219,8 +200,7 @@ function buildViewKey(layerDepth = currentLayerDepth) {
 
 function buildRenderKey(renderedDepth = currentRenderedLayerDepth) {
   return [
-    currentEffectiveLayoutMode,
-    currentRenderProfile,
+    currentLayoutMode,
     nodeTextMode,
     labelFontSize,
     nodeSizeMode,
@@ -236,8 +216,7 @@ function clearGraph() {
   currentDisplayGraph = null;
   currentGraphTabs = [];
   activeGraphTabId = null;
-  currentRenderProfile = "full";
-  currentEffectiveLayoutMode = "hierarchicalTB";
+  currentLayoutMode = "hierarchicalTB";
   currentSubgraph = null;
   currentTabBaseSubgraph = null;
   currentLayerMeta = null;
@@ -263,35 +242,12 @@ function clearGraph() {
   updateSelectedNodeDetail(null);
 }
 
-function updateRenderModeInfo() {
-  updateRenderModeInfoUi(renderModeInfo, {
-    currentGraphStats,
-    currentRenderProfile,
-    requestedRenderMode: getRequestedRenderMode(),
-    currentEffectiveLayoutMode,
-    requestedLayoutMode: getRequestedLayoutMode(),
-    largeGraphNodeThreshold: LARGE_GRAPH_NODE_THRESHOLD,
-    largeGraphEdgeThreshold: LARGE_GRAPH_EDGE_THRESHOLD,
-  });
-}
-
-function updateNodeTextModeInfo() {
-  updateNodeTextModeInfoUi(nodeTextModeInfo, nodeTextModeSelect, {
-    currentRenderProfile,
-    nodeTextMode,
-  });
-}
-
 function updateNodeInfoStatus() {
   if (!nodeInfoStatus) return;
   const infoCount = currentNodeDetailIndex?.entriesById?.size || 0;
   const hasInfo = infoCount > 0;
   nodeInfoStatus.textContent = hasInfo ? `节点信息：有（${infoCount} 项）` : "节点信息：无";
   nodeInfoStatus.classList.toggle("has-info", hasInfo);
-}
-
-function updateNodeSizeModeInfo() {
-  updateNodeSizeModeInfoUi(nodeSizeModeInfo, nodeSizeMode, formatNodeSizeModeLabel);
 }
 
 function updateLabelFontSizeInfo() {
@@ -424,8 +380,16 @@ function normalizeLabelFontSize(value) {
   return Math.max(MIN_LABEL_FONT_SIZE, Math.min(MAX_LABEL_FONT_SIZE, safeValue));
 }
 
+function rebuildLayerMeta() {
+  currentLayerMeta = sourceParsedGraph ? buildNodeLayerMap(sourceParsedGraph) : null;
+  currentLayerMaxDepth = currentLayerMeta?.maxDepth || 0;
+}
+
+// The layer map depends only on the source graph, so it is rebuilt once per load in
+// renderGraph(). Only the suggested depth depends on the current M threshold, so
+// stepping M must not pay for a full re-layering of a 10k+ node graph.
 function refreshLayerState({ resetDepth = false } = {}) {
-  if (!sourceParsedGraph) {
+  if (!sourceParsedGraph || !currentLayerMeta) {
     currentLayerMeta = null;
     currentLayerDepth = 0;
     currentLayerMaxDepth = 0;
@@ -433,8 +397,6 @@ function refreshLayerState({ resetDepth = false } = {}) {
     return;
   }
 
-  currentLayerMeta = buildNodeLayerMap(sourceParsedGraph);
-  currentLayerMaxDepth = currentLayerMeta.maxDepth;
   currentAutoLayerDepth = getSuggestedLayerDepth(
     sourceParsedGraph,
     currentLayerMeta,
@@ -537,14 +499,12 @@ function updateLayerDepthControls() {
       layerDepthUpBtn,
       layerDepthAutoBtn,
       layerDepthAllBtn,
-      layerDepthInfo,
     },
     {
       hasGraph: Boolean(sourceParsedGraph && currentTabBaseSubgraph),
       currentLayerDepth,
       currentLayerMaxDepth,
       currentAutoLayerDepth,
-      getLayerDepthLabel,
     },
   );
 }
@@ -628,7 +588,6 @@ async function renderActiveGraph(statusPrefix = "") {
     currentTabBaseSubgraph = null;
     currentSubgraph = null;
     currentRenderedSubgraph = null;
-    updateRenderModeInfo();
     updateLayerDepthControls();
     renderGraphTabs();
     setStatus(
@@ -641,19 +600,15 @@ async function renderActiveGraph(statusPrefix = "") {
   primeRenderableComponent(activeTab);
 
   currentGraphStats = summarizeGraph(currentRenderedSubgraph);
-  currentRenderProfile = getEffectiveRenderProfile(currentGraphStats, getRequestedRenderMode());
-  currentEffectiveLayoutMode = getEffectiveLayoutMode(getRequestedLayoutMode(), currentRenderProfile);
+  currentLayoutMode = getRequestedLayoutMode();
 
-  updateRenderModeInfo();
-  updateNodeTextModeInfo();
-  updateNodeSizeModeInfo();
+  syncNodeTextModeSelect(nodeTextModeSelect, nodeTextMode);
   updateLabelFontSizeInfo();
   updateLayerDepthControls();
   renderGraphTabs();
 
   const { dot, engine } = serializeGraphToDot(currentRenderedSubgraph, {
-    renderProfile: currentRenderProfile,
-    layoutMode: currentEffectiveLayoutMode,
+    layoutMode: currentLayoutMode,
     nodeTextMode,
     labelFontSize,
     nodeSizeMode,
@@ -678,7 +633,6 @@ async function renderActiveGraph(statusPrefix = "") {
     renderer.render({
       svgMarkup,
       parsed: currentRenderedSubgraph,
-      overview: currentRenderProfile === "overview",
       nodeTextMode,
       labelFontSize,
     });
@@ -700,7 +654,6 @@ async function renderActiveGraph(statusPrefix = "") {
     if (error?.name === "AbortError") return;
     renderer.clear();
     currentSubgraph = null;
-    updateRenderModeInfo();
     updateLayerDepthControls();
     renderGraphTabs();
     setStatus(
@@ -721,6 +674,7 @@ function renderGraph(statusPrefix = "") {
     refineModeController?.clear();
     genePairExportController?.clearPair();
     layerDepthIsAuto = true;
+    rebuildLayerMeta();
     refreshLayerState({ resetDepth: true });
     rebuildDisplayComponents({ preserveActive: false });
     updateMinComponentSizeInfo();
@@ -746,7 +700,6 @@ function renderGraph(statusPrefix = "") {
     layerDepthIsAuto = true;
     tabStateStore.reset();
     updateMinComponentSizeInfo();
-    updateRenderModeInfo();
     updateLayerDepthControls();
     renderGraphTabs();
     setStatus(
@@ -775,7 +728,6 @@ async function loadDefaultGraph() {
   } catch (error) {
     currentDotText = "";
     clearGraph();
-    updateRenderModeInfo();
     renderGraphTabs();
     setStatus(`默认图加载失败：${error.message}`, true);
     console.warn("Failed to load default graph:", error);
@@ -819,22 +771,10 @@ zoomInBtn.addEventListener("click", () => renderer.zoom(1.18));
 zoomOutBtn.addEventListener("click", () => renderer.zoom(1 / 1.18));
 fitViewBtn.addEventListener("click", () => renderer.fitToView());
 
-if (renderModeSelect) {
-  renderModeSelect.addEventListener("change", () => {
-    if (!sourceParsedGraph) {
-      updateRenderModeInfo();
-      renderGraphTabs();
-      return;
-    }
-    captureCurrentTabViewState();
-    renderActiveGraph("已切换渲染策略");
-  });
-}
-
 if (nodeTextModeSelect) {
   nodeTextModeSelect.addEventListener("change", () => {
     const nextMode = nodeTextModeSelect.value;
-    if (currentRenderProfile === "overview" || !NODE_TEXT_MODES.includes(nextMode)) return;
+    if (!NODE_TEXT_MODES.includes(nextMode)) return;
     if (nodeTextMode === nextMode) return;
     captureCurrentTabViewState();
     nodeTextMode = nextMode;
@@ -865,7 +805,6 @@ if (labelFontSizeUpBtn) {
 
 nodeSizeModeSelect.addEventListener("change", () => {
   nodeSizeMode = nodeSizeModeSelect.value;
-  updateNodeSizeModeInfo();
   if (!sourceParsedGraph) return;
   captureCurrentTabViewState();
   renderActiveGraph("已切换节点尺寸");
@@ -948,10 +887,8 @@ if (nodeSizeModeSelect) {
   }
 }
 
-updateNodeTextModeInfo();
-updateNodeSizeModeInfo();
+syncNodeTextModeSelect(nodeTextModeSelect, nodeTextMode);
 updateLabelFontSizeInfo();
 updateMinComponentSizeInfo();
-updateRenderModeInfo();
 updateLayerDepthControls();
 loadDefaultGraph();

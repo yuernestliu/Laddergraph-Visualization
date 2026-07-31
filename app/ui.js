@@ -4,84 +4,9 @@ export function setStatus(statusEl, message, isError = false) {
   statusEl.style.color = isError ? "#c92a2a" : "#6b7280";
 }
 
-export function updateRenderModeInfo(renderModeInfo, options) {
-  if (!renderModeInfo) return;
-
-  const {
-    currentGraphStats,
-    currentRenderProfile,
-    requestedRenderMode,
-    currentEffectiveLayoutMode,
-    requestedLayoutMode,
-    largeGraphNodeThreshold,
-    largeGraphEdgeThreshold,
-  } = options;
-
-  const requestedLabel =
-    requestedRenderMode === "auto"
-      ? "自动"
-      : requestedRenderMode === "overview"
-        ? "概览模式"
-        : "完整模式";
-
-  if (!currentGraphStats) {
-    renderModeInfo.textContent =
-      `${requestedLabel}；超过 ${largeGraphNodeThreshold} 个节点或 ` +
-      `${largeGraphEdgeThreshold} 条边时会自动切到概览模式。`;
-    return;
-  }
-
-  const sizeLabel = `${currentGraphStats.nodeCount} 节点 / ${currentGraphStats.edgeCount} 边`;
-  if (currentRenderProfile === "overview") {
-    const autoPrefix = requestedRenderMode === "auto" ? "自动 -> " : "";
-    const layoutNote =
-      currentEffectiveLayoutMode !== requestedLayoutMode
-        ? "；已把力导向安全降级为默认分层"
-        : "";
-    renderModeInfo.textContent =
-      `当前策略：${autoPrefix}概览模式（${sizeLabel}；隐藏标签、压缩布局${layoutNote}）`;
-    return;
-  }
-
-  renderModeInfo.textContent = `当前策略：${requestedLabel}（${sizeLabel}）`;
-}
-
-export function updateNodeTextModeInfo(nodeTextModeInfo, nodeTextModeSelect, options) {
-  const { currentRenderProfile, nodeTextMode } = options;
-  const labels = {
-    label: "都显示",
-    id: "只显示 ID",
-    none: "不显示 Label",
-  };
-
-  if (currentRenderProfile === "overview") {
-    if (nodeTextModeSelect) {
-      nodeTextModeSelect.disabled = true;
-    }
-    if (nodeTextModeInfo) {
-      nodeTextModeInfo.textContent = "当前显示：概览模式已隐藏节点文本";
-    }
-    return;
-  }
-
-  if (nodeTextModeSelect) {
-    nodeTextModeSelect.disabled = false;
-    nodeTextModeSelect.value = nodeTextMode;
-  }
-
-  if (nodeTextModeInfo) {
-    nodeTextModeInfo.textContent = `当前显示：${labels[nodeTextMode] || labels.label}`;
-  }
-}
-
-export function updateNodeSizeModeInfo(nodeSizeModeInfo, nodeSizeMode, formatNodeSizeModeLabel) {
-  if (!nodeSizeModeInfo) return;
-  const label = formatNodeSizeModeLabel(nodeSizeMode);
-  if (nodeSizeMode === "fixed") {
-    nodeSizeModeInfo.textContent = "当前尺寸：固定。";
-    return;
-  }
-  nodeSizeModeInfo.textContent = `当前尺寸：target 固定；非 target 按 ${label} 映射，S 取括号里的数字。`;
+export function syncNodeTextModeSelect(nodeTextModeSelect, nodeTextMode) {
+  if (!nodeTextModeSelect) return;
+  nodeTextModeSelect.value = nodeTextMode;
 }
 
 export function updateLabelFontSizeControl(controlEls, options) {
@@ -164,43 +89,17 @@ export function updateMinComponentSizeControl(controlEls, options) {
 }
 
 export function updateLayerDepthControls(controlEls, options) {
-  const {
-    layerDepthDownBtn,
-    layerDepthUpBtn,
-    layerDepthAutoBtn,
-    layerDepthAllBtn,
-    layerDepthInfo,
-  } = controlEls;
-  const {
-    hasGraph,
-    currentLayerDepth,
-    currentLayerMaxDepth,
-    currentAutoLayerDepth,
-    getLayerDepthLabel,
-  } = options;
+  const { layerDepthDownBtn, layerDepthUpBtn, layerDepthAutoBtn, layerDepthAllBtn } = controlEls;
+  const { hasGraph, currentLayerDepth, currentLayerMaxDepth, currentAutoLayerDepth } = options;
 
   if (!layerDepthDownBtn || !layerDepthUpBtn || !layerDepthAllBtn) return;
 
-  const trimmed = Math.max(0, Math.min(currentLayerMaxDepth, currentLayerDepth));
   layerDepthDownBtn.disabled = !hasGraph || currentLayerDepth >= currentLayerMaxDepth;
   layerDepthUpBtn.disabled = !hasGraph || currentLayerDepth <= 0;
   if (layerDepthAutoBtn) {
     layerDepthAutoBtn.disabled = !hasGraph || currentLayerDepth === currentAutoLayerDepth;
   }
   layerDepthAllBtn.disabled = !hasGraph || currentLayerDepth <= 0;
-
-  if (!layerDepthInfo) return;
-  if (!hasGraph) {
-    layerDepthInfo.textContent = "当前层级：未加载图";
-    return;
-  }
-
-  const detail =
-    trimmed <= 0 ? `完整显示（最深 ${currentLayerMaxDepth} 层）` : `已去掉最底层 ${trimmed} 层`;
-  const autoDetail = currentAutoLayerDepth === 0 ? "全部" : `-${currentAutoLayerDepth}层`;
-  layerDepthInfo.textContent =
-    `当前层级：${getLayerDepthLabel(currentLayerDepth, currentLayerMaxDepth)}。${detail}；` +
-    `合适层级：${autoDetail}`;
 }
 
 export function renderGraphTabs(options) {

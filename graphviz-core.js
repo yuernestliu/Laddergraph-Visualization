@@ -1,6 +1,4 @@
-export const DEFAULT_DOT_PATH = "./G-default.gv";
-export const LARGE_GRAPH_NODE_THRESHOLD = 350;
-export const LARGE_GRAPH_EDGE_THRESHOLD = 700;
+export const DEFAULT_DOT_PATH = "./graphs/PHIRE/G0-default.gv";
 export const FONT_FAMILY = "Avenir Next,PingFang SC,Noto Sans SC,sans-serif";
 
 const HIDDEN_NODE_IDS = new Set(["-1"]);
@@ -54,26 +52,6 @@ export function summarizeGraph(parsed) {
     nodeCount: parsed.nodes.length,
     edgeCount: parsed.edges.length,
   };
-}
-
-export function isLargeGraph(stats) {
-  return (
-    stats.nodeCount >= LARGE_GRAPH_NODE_THRESHOLD ||
-    stats.edgeCount >= LARGE_GRAPH_EDGE_THRESHOLD
-  );
-}
-
-export function getEffectiveRenderProfile(stats, requestedMode) {
-  if (requestedMode === "full") return "full";
-  if (requestedMode === "overview") return "overview";
-  return isLargeGraph(stats) ? "overview" : "full";
-}
-
-export function getEffectiveLayoutMode(layoutMode, renderProfile) {
-  if (renderProfile === "overview" && layoutMode === "force") {
-    return "ruleBased";
-  }
-  return layoutMode;
 }
 
 export function normalizeDisplayLabel(rawLabel) {
@@ -170,121 +148,6 @@ export function sanitizeParsedGraph(parsed) {
     graphAttrs: parsed.graphAttrs,
     nodes: visibleNodes,
     edges: visibleEdges,
-  };
-}
-
-function createTabDescriptor(parsed, id, label, kind, nodeIds) {
-  const uniqueNodeIds = Array.from(new Set(nodeIds));
-  const nodeSet = new Set(uniqueNodeIds);
-  let edgeCount = 0;
-
-  for (const edge of parsed.edges) {
-    if (nodeSet.has(edge.from) && nodeSet.has(edge.to)) {
-      edgeCount += 1;
-    }
-  }
-
-  return {
-    id,
-    label,
-    kind,
-    nodeIds: uniqueNodeIds,
-    nodeSet,
-    stats: {
-      nodeCount: uniqueNodeIds.length,
-      edgeCount,
-    },
-  };
-}
-
-export function buildGraphTabs(parsed) {
-  const adjacency = new Map(parsed.nodes.map((node) => [node.id, new Set()]));
-
-  for (const edge of parsed.edges) {
-    if (!adjacency.has(edge.from) || !adjacency.has(edge.to)) continue;
-    adjacency.get(edge.from).add(edge.to);
-    adjacency.get(edge.to).add(edge.from);
-  }
-
-  const isolatedIds = [];
-  const visited = new Set();
-
-  for (const node of parsed.nodes) {
-    const neighbors = adjacency.get(node.id);
-    if (!neighbors || neighbors.size === 0) {
-      isolatedIds.push(node.id);
-      visited.add(node.id);
-    }
-  }
-
-  const components = [];
-  for (const node of parsed.nodes) {
-    const startId = node.id;
-    if (visited.has(startId)) continue;
-
-    const queue = [startId];
-    const componentNodeIds = [];
-    visited.add(startId);
-
-    while (queue.length) {
-      const nodeId = queue.shift();
-      componentNodeIds.push(nodeId);
-
-      for (const neighborId of adjacency.get(nodeId) || []) {
-        if (visited.has(neighborId)) continue;
-        visited.add(neighborId);
-        queue.push(neighborId);
-      }
-    }
-
-    components.push(componentNodeIds);
-  }
-
-  components.sort((a, b) => b.length - a.length);
-
-  if (components.length === 1 && isolatedIds.length === 0) {
-    return [
-      createTabDescriptor(
-        parsed,
-        "all",
-        "全图",
-        "component",
-        parsed.nodes.map((node) => node.id),
-      ),
-    ];
-  }
-
-  const tabs = components.map((nodeIds, index) =>
-    createTabDescriptor(
-      parsed,
-      `component-${index + 1}`,
-      components.length === 1 ? "主图" : `连通图 ${index + 1} (${nodeIds.length})`,
-      "component",
-      nodeIds,
-    ),
-  );
-
-  if (isolatedIds.length) {
-    tabs.push(
-      createTabDescriptor(
-        parsed,
-        "isolated",
-        `孤立点 (${isolatedIds.length})`,
-        "isolated",
-        isolatedIds,
-      ),
-    );
-  }
-
-  return tabs;
-}
-
-export function getSubgraphForTab(parsed, tab) {
-  if (!tab) return parsed;
-  return {
-    graphAttrs: parsed.graphAttrs,
-    nodes: parsed.nodes.filter((node) => tab.nodeSet.has(node.id)),
-    edges: parsed.edges.filter((edge) => tab.nodeSet.has(edge.from) && tab.nodeSet.has(edge.to)),
   };
 }
 
@@ -633,19 +496,18 @@ function ensureFilledStyle(styleValue) {
   return parts.join(",");
 }
 
-function getLayoutSpec(layoutMode, renderProfile) {
-  const compact = renderProfile === "overview";
+function getLayoutSpec(layoutMode) {
   switch (layoutMode) {
     case "hierarchicalLR":
       return {
         engine: "dot",
         graphAttrs: {
           rankdir: "LR",
-          splines: compact ? "polyline" : "spline",
-          nodesep: compact ? "0.16" : "0.28",
-          ranksep: compact ? "0.35" : "0.72",
+          splines: "spline",
+          nodesep: "0.28",
+          ranksep: "0.72",
           outputorder: "edgesfirst",
-          pad: compact ? "0.08" : "0.2",
+          pad: "0.2",
         },
       };
     case "ruleBased":
@@ -654,11 +516,11 @@ function getLayoutSpec(layoutMode, renderProfile) {
         graphAttrs: {
           rankdir: "BT",
           ordering: "out",
-          splines: compact ? "line" : "polyline",
-          nodesep: compact ? "0.12" : "0.22",
-          ranksep: compact ? "0.28" : "0.54",
+          splines: "polyline",
+          nodesep: "0.22",
+          ranksep: "0.54",
           outputorder: "edgesfirst",
-          pad: compact ? "0.08" : "0.16",
+          pad: "0.16",
         },
       };
     case "force":
@@ -667,9 +529,9 @@ function getLayoutSpec(layoutMode, renderProfile) {
         graphAttrs: {
           overlap: "prism0",
           splines: "true",
-          sep: compact ? "+6" : "+12",
+          sep: "+12",
           outputorder: "edgesfirst",
-          pad: compact ? "0.08" : "0.18",
+          pad: "0.18",
         },
       };
     case "hierarchicalTB":
@@ -678,11 +540,11 @@ function getLayoutSpec(layoutMode, renderProfile) {
         engine: "dot",
         graphAttrs: {
           rankdir: "BT",
-          splines: compact ? "polyline" : "spline",
-          nodesep: compact ? "0.16" : "0.3",
-          ranksep: compact ? "0.34" : "0.78",
+          splines: "spline",
+          nodesep: "0.3",
+          ranksep: "0.78",
           outputorder: "edgesfirst",
-          pad: compact ? "0.08" : "0.2",
+          pad: "0.2",
         },
       };
   }
@@ -697,14 +559,13 @@ export function extractNodeMetricFromLabel(rawLabel) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function buildNodeSizeContext(nodes, renderProfile, nodeSizeMode) {
-  const compact = renderProfile === "overview";
-  const defaultWidth = compact ? 0.58 : 0.98;
-  const height = compact ? 0.24 : 0.4;
-  const minWidth = compact ? 0.38 : 0.52;
+function buildNodeSizeContext(nodes, nodeSizeMode) {
+  const defaultWidth = 0.98;
+  const height = 0.4;
+  const minWidth = 0.52;
   const config = getSizeModeConfig(nodeSizeMode);
   const rawWidthByNodeId = new Map();
-  const maxWidth = compact ? Math.min(1.8, config.maxWidth * 0.5) : config.maxWidth;
+  const maxWidth = config.maxWidth;
   let maxRawWidth = Number.NEGATIVE_INFINITY;
 
   if (nodeSizeMode !== "fixed") {
@@ -744,8 +605,7 @@ function getNodeEllipseWidth(node, sizeContext) {
 }
 
 function buildRenderableNodeAttrs(node, options, sizeContext) {
-  const { renderProfile, nodeTextMode } = options;
-  const compact = renderProfile === "overview";
+  const { nodeTextMode } = options;
   const attrs = stripLayoutAttrs(node.attrs || {});
   const dotLabel = normalizeDisplayLabel(attrs.label || node.id);
   const targetNode = isTargetNode(attrs, node.id);
@@ -761,8 +621,8 @@ function buildRenderableNodeAttrs(node, options, sizeContext) {
     attrs.fillcolor = attrs.fillcolor || "#ffffff";
     attrs.color = attrs.color || "#b7b7b7";
     attrs.fixedsize = "true";
-    attrs.width = compact ? "0.20" : "0.30";
-    attrs.height = compact ? "0.20" : "0.30";
+    attrs.width = "0.30";
+    attrs.height = "0.30";
     attrs.margin = "0.01,0.01";
     attrs.fontsize = "1";
     attrs.label = " ";
@@ -780,7 +640,7 @@ function buildRenderableNodeAttrs(node, options, sizeContext) {
     attrs.height = `${sizeContext.height.toFixed(3)}`;
     attrs.margin = "0.01,0.01";
     attrs.fontsize = "1";
-    attrs.label = compact ? " " : " ";
+    attrs.label = " ";
     delete attrs.xlabel;
     return attrs;
   }
@@ -790,20 +650,12 @@ function buildRenderableNodeAttrs(node, options, sizeContext) {
     attrs.style = ensureFilledStyle(attrs.style);
     attrs.fixedsize = "true";
     const width = getNodeEllipseWidth(node, sizeContext);
-    const height = compact
-      ? Math.max(0.18, (0.28 / 0.98) * width)
-      : Math.max(0.26, (0.52 / 0.98) * width);
+    const height = Math.max(0.26, (0.52 / 0.98) * width);
     attrs.width = `${width.toFixed(3)}`;
     attrs.height = `${height.toFixed(3)}`;
     attrs.fontsize = "1";
     attrs.label = " ";
     delete attrs.xlabel;
-    return attrs;
-  }
-
-  if (compact) {
-    attrs.label = "";
-    attrs.fontsize = attrs.fontsize || "8";
     return attrs;
   }
 
@@ -818,12 +670,11 @@ function buildRenderableNodeAttrs(node, options, sizeContext) {
   return attrs;
 }
 
-function buildRenderableEdgeAttrs(edge, renderProfile, nodeTextMode) {
+function buildRenderableEdgeAttrs(edge, nodeTextMode) {
   const attrs = stripLayoutAttrs(edge.attrs || {});
-  const compact = renderProfile === "overview";
 
   attrs.fontname = attrs.fontname || FONT_FAMILY;
-  if (compact || nodeTextMode === "none") {
+  if (nodeTextMode === "none") {
     delete attrs.label;
     delete attrs.xlabel;
     delete attrs.headlabel;
@@ -835,14 +686,12 @@ function buildRenderableEdgeAttrs(edge, renderProfile, nodeTextMode) {
 }
 
 export function serializeGraphToDot(parsed, options) {
-  const { renderProfile, layoutMode, nodeTextMode, nodeSizeMode, labelFontSize } = options;
-  const layoutSpec = getLayoutSpec(layoutMode, renderProfile);
-  const compact = renderProfile === "overview";
+  const { layoutMode, nodeTextMode, nodeSizeMode, labelFontSize } = options;
+  const layoutSpec = getLayoutSpec(layoutMode);
   const sizeContext = buildNodeSizeContext(
     Array.isArray(options.sizeSourceNodes) && options.sizeSourceNodes.length
       ? options.sizeSourceNodes
       : parsed.nodes,
-    renderProfile,
     nodeSizeMode,
   );
 
@@ -853,10 +702,6 @@ export function serializeGraphToDot(parsed, options) {
     ...layoutSpec.graphAttrs,
   };
 
-  if (compact) {
-    graphAttrs.concentrate = "true";
-  }
-
   const lines = ["digraph Laddergraph {"];
 
   for (const [key, value] of Object.entries(graphAttrs)) {
@@ -865,16 +710,14 @@ export function serializeGraphToDot(parsed, options) {
   }
 
   lines.push(
-    `  node [fontname=${quoteDotValue(FONT_FAMILY)}, margin=${quoteDotValue(
-      compact ? "0.04,0.02" : "0.12,0.06",
-    )}];`,
+    `  node [fontname=${quoteDotValue(FONT_FAMILY)}, margin=${quoteDotValue("0.12,0.06")}];`,
   );
   lines.push(`  edge [fontname=${quoteDotValue(FONT_FAMILY)}, fontsize="9"];`);
 
   for (const node of parsed.nodes) {
     lines.push(
       `  ${quoteDotId(node.id)}${serializeAttrs(
-        buildRenderableNodeAttrs(node, { renderProfile, nodeTextMode, labelFontSize }, sizeContext),
+        buildRenderableNodeAttrs(node, { nodeTextMode, labelFontSize }, sizeContext),
       )};`,
     );
   }
@@ -882,7 +725,7 @@ export function serializeGraphToDot(parsed, options) {
   for (const edge of parsed.edges) {
     lines.push(
       `  ${quoteDotId(edge.from)} -> ${quoteDotId(edge.to)}${serializeAttrs(
-        buildRenderableEdgeAttrs(edge, renderProfile, nodeTextMode),
+        buildRenderableEdgeAttrs(edge, nodeTextMode),
       )};`,
     );
   }
