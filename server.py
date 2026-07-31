@@ -9,6 +9,7 @@ from backend.graphviz_render_service import (
     DEFAULT_DOT_BIN,
     GraphvizBinaryNotFoundError,
     GraphvizRenderError,
+    UnsupportedGraphvizEngineError,
     render_dot_to_svg,
 )
 
@@ -48,6 +49,9 @@ class GraphvizHandler(SimpleHTTPRequestHandler):
 
         try:
             render_result = render_dot_to_svg(dot_source, engine, dot_bin=DEFAULT_DOT_BIN, cwd=str(ROOT))
+        except UnsupportedGraphvizEngineError as exc:
+            self._write_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+            return
         except GraphvizBinaryNotFoundError as exc:
             self._write_json(
                 HTTPStatus.INTERNAL_SERVER_ERROR,
