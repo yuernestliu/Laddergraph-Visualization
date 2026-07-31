@@ -1,6 +1,6 @@
 # Laddergraph 可视化架构说明
 
-当前主线目录：`设计中/`
+主线代码在仓库根目录。运行方式和功能说明见 [README.md](README.md)。
 
 这份文档的目标不是解释业务，而是定义协作边界。多人并行开发时，优先按下面这些模块分工，尽量不要跨模块随意改。
 
@@ -17,12 +17,12 @@
 
 - `graphviz-core.js`
   - 图数据层。
-  - 负责 DOT 解析、图清洗、连通图切分、层级计算、节点分类、DOT 序列化。
+  - 负责 DOT 解析、图清洗、层级计算、层级/连通规模过滤、DOT 序列化。
   - 这里应保持“无 DOM、无 fetch、无浏览器依赖”。
 
 - `graphviz-svg-renderer.js`
   - SVG 视图层。
-  - 负责 SVG DOM、节点高亮、缩放、平移、显隐。
+  - 负责 SVG DOM、节点高亮、缩放、平移、Label 重绘。
   - 不负责图算法和业务状态决策。
 
 - `server.py`
@@ -36,8 +36,6 @@
 - `app/graph-tab-state-store.js`
   - 管理每个连通图标签的本地状态：
     - 视口
-    - 当前层级
-    - 已渲染到的层级
     - SVG render cache
   - 如果以后要修“切标签后位置变化”，优先改这个模块。
 
@@ -45,7 +43,7 @@
   - 管理层级相关规则：
     - 层级裁剪
     - 层级文案
-    - 合适层级计算
+    - 合适层级计算（对裁剪量做二分，依赖“裁得越多、图只会更小”的单调性）
   - 这里不要碰 DOM。
 
 - `app/display-components.js`
@@ -55,10 +53,14 @@
     - 保证每个标签页只显示一个连通图
     - 标签过多时给 UI 层提供下拉选项数据
   - 后续新增筛选工具时，优先接入这里的 display component 管线。
+  - **连通分量切分只有这一份实现**，不要在 `graphviz-core.js` 里再写一份。
 
 - `app/csv-node-details.js`
   - 管理旧行式 CSV 的解析和按节点 ID 查询详情。
   - 这里不直接更新 DOM。
+
+- `app/ladderon-node-info.js`
+  - 管理列式 CSV（表头是节点 ID）的解析。
 
 - `app/json-node-details.js`
   - 管理 JSON 节点信息解析。
@@ -68,7 +70,7 @@
 - `app/node-info-source.js`
   - 统一节点信息来源：
     - 优先查找和解析 JSON；
-    - 兼容旧 CSV；
+    - 兼容两种 CSV；
     - 可从 `G2瑞金B细胞-03_300-全.gv` 推导 `03_300_ladderons.json`。
   - 后续调整节点信息命名规则或文件优先级时，优先改这里。
 
@@ -79,8 +81,8 @@
     - 禁用非编辑控件
     - `data-edit-mode-control` 白名单
     - `laddergraph:edit-mode-change` 事件
+  - 目前只有模式外壳，没有实际编辑功能。
   - 后续如果要实现“编辑模式”的具体功能，优先读 `app/edit-mode/README.md`，再改这个文件夹。
-  - `app/edit-mode.js` 只是兼容转发入口。
   - 不要把具体编辑功能塞回 `graphviz-app.js`。
 
 - `app/refine-mode/`
@@ -104,7 +106,6 @@
 - `app/ui.js`
   - 所有“只更新界面”的逻辑都放这里：
     - 状态文字
-    - 顶部提示
     - 标签条
     - 层级按钮禁用态
     - 小网络过滤控件文案
@@ -115,7 +116,8 @@
 - `backend/graphviz_render_service.py`
   - 封装 Graphviz 子进程调用。
   - 提供单一接口：`render_dot_to_svg(...)`
-  - 如果以后要切 `dot/neato` 策略、做 stderr 处理、加超时或队列，优先改这里。
+  - 负责 engine 白名单（`SUPPORTED_ENGINES`）和渲染超时。
+  - 如果以后要加 stderr 处理或渲染队列，优先改这里。
 
 ## 3. 推荐并行分工
 
@@ -143,31 +145,30 @@
 - 图数据输入输出：
   - `parseDot(dotText)`
   - `sanitizeParsedGraph(parsed)`
-  - `buildGraphTabs(parsed)`
   - `buildNodeLayerMap(parsed)`
   - `applyVisibleSubgraphFilters(parsed, trimmedLayerCount, layerMeta, threshold)`
   - `serializeGraphToDot(parsed, options)`
 
+- 连通图切分与 M 过滤：
+  - `buildDisplayComponentState(parsed, { minComponentSize })`
+  - `getSubgraphForDisplayComponent(parsed, component)`
+
 - SVG 渲染器接口：
-  - `renderer.render({ svgMarkup, parsed, overview, nodeTextMode })`
-  - `renderer.setVisibleSubgraph(parsed)`
+  - `renderer.render({ svgMarkup, parsed, nodeTextMode, labelFontSize })`
   - `renderer.fitToView()`
   - `renderer.zoom(scaleFactor)`
   - `renderer.getViewState(viewKey)`
   - `renderer.restoreViewState(savedState, viewKey)`
+  - `renderer.setPairSelectionNodeIds(nodeIds)`
 
 - 标签状态缓存接口：
-  - `GraphTabStateStore#getViewState(...)`
-  - `GraphTabStateStore#setViewState(...)`
-  - `GraphTabStateStore#getRenderCache(...)`
-  - `GraphTabStateStore#setRenderCache(...)`
-  - `GraphTabStateStore#getLayerDepth(...)`
-  - `GraphTabStateStore#setLayerDepth(...)`
-  - `GraphTabStateStore#getRenderedDepth(...)`
-  - `GraphTabStateStore#setRenderedDepth(...)`
+  - `GraphTabStateStore#getViewState(tabId, viewKey)`
+  - `GraphTabStateStore#setViewState(tabId, viewKey, state)`
+  - `GraphTabStateStore#getRenderCache(tabId, renderKey)`
+  - `GraphTabStateStore#setRenderCache(tabId, renderKey, entry)`
 
 - 编辑模式接口：
-  - `createEditModeController({ rootEl, toggleButton, disabledRoot })`
+  - `createEditModeController({ rootEl, toggleButton, disabledRoot, onChange })`
   - `controller.mount()`
   - `controller.setEnabled(true/false)`
   - `controller.toggle()`
@@ -193,7 +194,7 @@
   - `controller.refresh()`
 
 - 后端渲染接口：
-  - `render_dot_to_svg(dot_source, engine, dot_bin, cwd)`
+  - `render_dot_to_svg(dot_source, engine, dot_bin=..., cwd=..., timeout=...)`
 
 ## 5. 协作约束
 
@@ -202,14 +203,17 @@
 - 不要让 `graphviz-app.js` 再变回 800 行以上的“总垃圾桶”。
 - 不要让 `server.py` 再直接承担 Graphviz 子进程细节。
 - 不要在多个模块里重复实现同一套层级/过滤规则。
+- **不要留“代码在、UI 不在”的功能**：如果控件从 `index.html` 里去掉了，对应的分支和状态也要一起去掉，
+  否则会像之前的“概览模式”一样长期空转。
+- 大图上任何 O(V+E) 级别的重算都要先问：这个动作真的需要重算吗？
+  `graphviz-app.js` 里层级图（`rebuildLayerMeta`）只在换图时重建，调 M 时不重建，就是这个原因。
 
 ## 6. 下一步建议
 
-下一轮继续收紧时，最值得继续拆的是：
+值得继续拆的是：
 
 - 把 `graphviz-core.js` 再拆成：
   - `core/parse-dot.js`
-  - `core/tab-splitting.js`
   - `core/layering.js`
   - `core/serialize-dot.js`
 
@@ -218,4 +222,7 @@
   - `renderer/highlight.js`
   - `renderer/label-decoration.js`
 
-这一轮先不继续拆，是为了先把边界稳定下来，避免多人并行时一次性改动过大。
+还没做的性能项：
+
+- `parseDot` 在万级节点图上仍然要 5 秒以上，且跑在主线程。要根治需要搬进 Web Worker。
+- 每个标签页的 SVG render cache 目前没有上限，大图上会持续吃内存。

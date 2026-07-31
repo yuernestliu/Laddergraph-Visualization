@@ -11,9 +11,7 @@ Current edit mode is an interface shell, not the real graph-editing feature. It 
 - `edit-controller.js`
   - Main controller.
   - Exports `createEditModeController(...)`.
-- `../edit-mode.js`
-  - Compatibility wrapper.
-  - Re-exports `createEditModeController` so existing imports keep working.
+  - `graphviz-app.js` imports it directly; there is no compatibility wrapper.
 
 ## Contract
 
@@ -68,4 +66,3 @@ Keep `graphviz-app.js` as the coordinator only. Do not put concrete editing beha
 - Do not mutate `sourceParsedGraph` directly from edit-mode tools.
 - Do not disable zoom in edit mode.
 - Do not mix refine-mode behavior into this folder.
-- Do not remove `../edit-mode.js` unless all imports have been migrated.
