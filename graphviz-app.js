@@ -20,7 +20,7 @@ import { createEditModeController } from "./app/edit-mode/edit-controller.js";
 import { createGenePairExportController } from "./app/gene-pair-export/gene-pair-export.js";
 import { GraphTabStateStore } from "./app/graph-tab-state-store.js";
 import { clampLayerDepth, getLayerDepthLabel, getSuggestedLayerDepth, getTrimmedLayerCount } from "./app/layer-utils.js";
-import { buildBestNodeDetailIndex, getNodeInfoCandidatesForGraph } from "./app/node-info-source.js";
+import { buildBestNodeDetailIndex, getSameNameCsvCandidate } from "./app/node-info-source.js";
 import { createRefineModeController } from "./app/refine-mode/refine-controller.js";
 import {
   renderGraphTabs as renderGraphTabsUi,
@@ -45,6 +45,9 @@ const fileInput = document.getElementById("fileInput");
 const renderBtn = document.getElementById("renderBtn");
 const nodeDetailFileInput = document.getElementById("nodeDetailFileInput");
 const importNodeDetailCsvBtn = document.getElementById("importNodeDetailCsvBtn");
+const nodeInfoFallbackDialog = document.getElementById("nodeInfoFallbackDialog");
+const nodeInfoFallbackMessage = document.getElementById("nodeInfoFallbackMessage");
+const chooseNodeDetailFileBtn = document.getElementById("chooseNodeDetailFileBtn");
 const appRoot = document.getElementById("appRoot");
 const statusEl = document.getElementById("status");
 const layoutSelect = document.getElementById("layoutSelect");
@@ -155,6 +158,7 @@ let currentRenderedLayerDepth = 0;
 let currentRenderedSubgraph = null;
 let currentRenderToken = 0;
 let currentRenderAbortController = null;
+let currentGraphSource = null;
 let currentNodeDetailIndex = null;
 let currentNodeDetailSource = "";
 let currentNodeDetailStatus = "点击图中的节点查看节点信息详情。";
@@ -228,6 +232,7 @@ function clearGraph() {
   minComponentSize = DEFAULT_MIN_COMPONENT_SIZE;
   minComponentSizeMax = DEFAULT_MIN_COMPONENT_SIZE;
   layerDepthIsAuto = true;
+  currentGraphSource = null;
   currentNodeDetailIndex = null;
   currentNodeDetailSource = "";
   currentNodeDetailStatus = "点击图中的节点查看节点信息详情。";
@@ -309,37 +314,69 @@ function updateSelectedNodeDetail(nodeId = selectedNodeId) {
   );
 }
 
-async function loadNodeDetailsForGraph(sourceName) {
-  currentNodeDetailIndex = null;
-  currentNodeDetailSource = "";
-  currentNodeDetailStatus = "正在查找节点信息 JSON/CSV...";
-  updateNodeInfoStatus();
-  genePairExportController?.refresh();
-  updateSelectedNodeDetail(null);
-
-  for (const candidate of getNodeInfoCandidatesForGraph(sourceName)) {
-    try {
-      const response = await fetch(encodeURI(candidate), { cache: "no-store" });
-      if (!response.ok) continue;
-
-      const nodeInfoText = await response.text();
-      currentNodeDetailIndex = buildBestNodeDetailIndex(nodeInfoText, candidate);
-      currentNodeDetailSource = candidate;
-      currentNodeDetailStatus =
-        `已加载 ${candidate}；${currentNodeDetailIndex.entriesById.size} 条详情。`;
-      updateNodeInfoStatus();
-      genePairExportController?.refresh();
-      updateSelectedNodeDetail(selectedNodeId);
-      return;
-    } catch (error) {
-      console.warn(`Failed to load node details from ${candidate}:`, error);
-    }
-  }
-
-  currentNodeDetailStatus = "没有找到可用的节点信息 JSON/CSV。";
+function refreshNodeDetailViews() {
   updateNodeInfoStatus();
   genePairExportController?.refresh();
   updateSelectedNodeDetail(selectedNodeId);
+}
+
+function resetNodeDetails(status = "点击“导入节点信息”查找同目录 CSV。") {
+  currentNodeDetailIndex = null;
+  currentNodeDetailSource = "";
+  currentNodeDetailStatus = status;
+  selectedNodeId = null;
+  refreshNodeDetailViews();
+}
+
+function applyNodeDetailText(nodeInfoText, sourceName, action = "已导入节点信息") {
+  currentNodeDetailIndex = buildBestNodeDetailIndex(nodeInfoText, sourceName);
+  currentNodeDetailSource = sourceName;
+  currentNodeDetailStatus =
+    `${action}：${sourceName}；${currentNodeDetailIndex.entriesById.size} 条详情。`;
+  refreshNodeDetailViews();
+}
+
+function showNodeInfoFallback(message) {
+  if (nodeInfoFallbackDialog?.showModal) {
+    nodeInfoFallbackMessage.textContent = message;
+    if (!nodeInfoFallbackDialog.open) nodeInfoFallbackDialog.showModal();
+    return;
+  }
+
+  window.alert(message);
+  nodeDetailFileInput?.click();
+}
+
+async function tryLoadSameNameCsv(sourceName) {
+  const candidate = getSameNameCsvCandidate(sourceName);
+  if (!candidate) {
+    return { outcome: "missing", candidate: "" };
+  }
+
+  currentNodeDetailStatus = `正在同目录查找 ${candidate}...`;
+  refreshNodeDetailViews();
+
+  try {
+    const response = await fetch(encodeURI(candidate), { cache: "no-store" });
+    if (!response.ok) {
+      if (!currentNodeDetailIndex) {
+        currentNodeDetailStatus = `同目录没有找到 ${candidate}。`;
+        refreshNodeDetailViews();
+      }
+      return { outcome: "missing", candidate };
+    }
+
+    const nodeInfoText = await response.text();
+    applyNodeDetailText(nodeInfoText, candidate, "已自动导入节点信息");
+    return { outcome: "loaded", candidate };
+  } catch (error) {
+    if (!currentNodeDetailIndex) {
+      currentNodeDetailStatus = `读取 ${candidate} 失败：${error.message}`;
+      refreshNodeDetailViews();
+    }
+    console.warn(`Failed to load node details from ${candidate}:`, error);
+    return { outcome: "error", candidate, error };
+  }
 }
 
 async function loadNodeDetailsFromFile(file) {
@@ -347,19 +384,12 @@ async function loadNodeDetailsFromFile(file) {
 
   try {
     const nodeInfoText = await file.text();
-    currentNodeDetailIndex = buildBestNodeDetailIndex(nodeInfoText, file.name);
-    currentNodeDetailSource = file.name;
-    currentNodeDetailStatus =
-      `已导入节点信息：${file.name}；${currentNodeDetailIndex.entriesById.size} 条详情。`;
-    updateNodeInfoStatus();
-    genePairExportController?.refresh();
-    updateSelectedNodeDetail(selectedNodeId);
+    applyNodeDetailText(nodeInfoText, file.name);
   } catch (error) {
     currentNodeDetailIndex = null;
+    currentNodeDetailSource = "";
     currentNodeDetailStatus = `节点信息导入失败：${error.message}`;
-    updateNodeInfoStatus();
-    genePairExportController?.refresh();
-    updateSelectedNodeDetail(selectedNodeId);
+    refreshNodeDetailViews();
     setStatus(currentNodeDetailStatus, true);
     console.error(error);
   }
@@ -723,7 +753,9 @@ async function loadDefaultGraph() {
       throw new Error(`HTTP ${response.status}`);
     }
     currentDotText = await response.text();
-    await loadNodeDetailsForGraph(DEFAULT_DOT_PATH);
+    currentGraphSource = { kind: "url", sourceName: DEFAULT_DOT_PATH };
+    resetNodeDetails();
+    await tryLoadSameNameCsv(DEFAULT_DOT_PATH);
     renderGraph(`已加载默认图：${DEFAULT_DOT_PATH}`);
   } catch (error) {
     currentDotText = "";
@@ -739,7 +771,8 @@ fileInput.addEventListener("change", async (event) => {
   if (!file) return;
   try {
     currentDotText = await file.text();
-    await loadNodeDetailsForGraph(file.name);
+    currentGraphSource = { kind: "local-file", sourceName: file.name };
+    resetNodeDetails(`已加载 ${file.name}；点击“导入节点信息”查找同名 CSV。`);
     renderGraph(`已加载文件：${file.name}`);
   } catch (error) {
     setStatus(`读取文件失败：${error.message}`, true);
@@ -747,14 +780,40 @@ fileInput.addEventListener("change", async (event) => {
 });
 
 if (importNodeDetailCsvBtn && nodeDetailFileInput) {
-  importNodeDetailCsvBtn.addEventListener("click", () => {
-    nodeDetailFileInput.click();
+  importNodeDetailCsvBtn.addEventListener("click", async () => {
+    if (!currentGraphSource) {
+      showNodeInfoFallback("当前还没有导入 GV 图。你仍可直接选择一个 CSV 或 JSON 节点信息文件。");
+      return;
+    }
+
+    const candidate = getSameNameCsvCandidate(currentGraphSource.sourceName);
+    if (currentGraphSource.kind === "url") {
+      const result = await tryLoadSameNameCsv(currentGraphSource.sourceName);
+      if (result.outcome === "loaded") return;
+
+      const reason = result.outcome === "error"
+        ? `读取 ${result.candidate} 失败。`
+        : `GV 同目录没有找到同名文件 ${result.candidate}。`;
+      showNodeInfoFallback(`${reason} 请手动选择 CSV 或 JSON 节点信息文件。`);
+      return;
+    }
+
+    showNodeInfoFallback(
+      `浏览器没有权限枚举 ${currentGraphSource.sourceName} 所在的本地文件夹，无法自动读取 ${candidate}。请手动选择 CSV 或 JSON 节点信息文件。`,
+    );
   });
 
   nodeDetailFileInput.addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
     await loadNodeDetailsFromFile(file);
     nodeDetailFileInput.value = "";
+  });
+}
+
+if (chooseNodeDetailFileBtn && nodeDetailFileInput) {
+  chooseNodeDetailFileBtn.addEventListener("click", () => {
+    nodeInfoFallbackDialog?.close();
+    nodeDetailFileInput.click();
   });
 }
 

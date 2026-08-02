@@ -20,18 +20,6 @@ function getGraphBaseName(sourceName) {
   return getFilename(sourceName).replace(/\.(gv|dot|txt)$/i, "");
 }
 
-function getGraphNodeInfoStems(sourceName) {
-  const baseName = getGraphBaseName(sourceName);
-  if (!baseName) return [];
-
-  const stems = [baseName];
-  const rangeMatch = baseName.match(/-(\d+_\d+)(?:-|$)/);
-  if (rangeMatch) {
-    stems.push(`${rangeMatch[1]}_ladderons`);
-  }
-  return Array.from(new Set(stems));
-}
-
 function looksLikeJson(text, sourceName) {
   if (/\.json$/i.test(getFilename(sourceName))) return true;
   const firstCharacter = String(text || "").replace(/^\uFEFF/, "").trimStart()[0];
@@ -52,26 +40,8 @@ export function buildBestNodeDetailIndex(text, sourceName = "") {
   return buildRowNodeDetailIndex(text);
 }
 
-export function getNodeInfoCandidatesForGraph(sourceName) {
-  const stems = getGraphNodeInfoStems(sourceName);
-  if (!stems.length) return [];
-
-  const directory = getDirectory(sourceName);
-  const directories = Array.from(new Set([
-    directory,
-    "./graphs/PHIRE/",
-    "./graphs/",
-    "./",
-  ].filter(Boolean)));
-  const candidates = [];
-
-  for (const extension of ["json", "csv"]) {
-    for (const candidateDirectory of directories) {
-      for (const stem of stems) {
-        candidates.push(`${candidateDirectory}${stem}.${extension}`);
-      }
-    }
-  }
-
-  return Array.from(new Set(candidates));
+export function getSameNameCsvCandidate(sourceName) {
+  const baseName = getGraphBaseName(sourceName);
+  if (!baseName) return "";
+  return `${getDirectory(sourceName)}${baseName}.csv`;
 }

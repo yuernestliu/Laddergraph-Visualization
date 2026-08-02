@@ -1,4 +1,4 @@
-export const DEFAULT_DOT_PATH = "./graphs/PHIRE/G0-default.gv";
+export const DEFAULT_DOT_PATH = "./example_graphs/G0.gv";
 export const FONT_FAMILY = "Avenir Next,PingFang SC,Noto Sans SC,sans-serif";
 
 const HIDDEN_NODE_IDS = new Set(["-1"]);
