@@ -38,7 +38,7 @@ source graph
 
 ## Contract
 
-Created from `graphviz-app.js`:
+Created from `src/main.js`:
 
 ```js
 createRefineModeController({
@@ -76,7 +76,7 @@ Events:
 - While refine mode is enabled, normal controls are locked.
 - Controls inside `[data-refine-mode-control]` remain available.
 - Zoom controls must remain available in refine mode.
-- Edit mode and refine mode should not be active at the same time; `graphviz-app.js` currently enforces this.
+- Edit mode and refine mode should not be active at the same time; `src/main.js` currently enforces this.
 
 ## Current User Actions
 
@@ -104,6 +104,6 @@ For future refinement logic:
 
 - Do not mutate `sourceParsedGraph`.
 - Do not mutate the graph passed into `projectGraph`; return cloned nodes/edges when decorating.
-- Do not put refine action logic in `graphviz-app.js`.
+- Do not put refine action logic in `src/main.js`.
 - Do not mix edit-mode behavior into this folder.
 - Do not create a second tab/component splitting pipeline here; use the graph passed in by the main display pipeline.

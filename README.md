@@ -1,53 +1,72 @@
 # Laddergraph Visualization
 
-一个面向 Laddergraph `.gv` / `.dot` 文件的**交互式浏览器**（不是通用图编辑器）。
+一个面向 Laddergraph `.gv` / `.dot` 文件的**纯前端交互式浏览器**（不是通用图编辑器）。
 
-本地 Python 服务把 DOT 交给本机 Graphviz 渲染成 SVG，前端再在 SVG 上做交互：连通网络切换、
-节点点击上下游高亮、层级裁切、最小网络规模过滤、缩放平移、节点尺寸映射、节点基因信息展示与导出。
+Graphviz 通过 WebAssembly 在用户浏览器的模块 Worker 中运行，前端再在清洗后的 SVG 上做交互：
+连通网络切换、节点点击上下游高亮、层级裁切、最小网络规模过滤、缩放平移、节点尺寸映射、
+节点基因信息展示与导出。用户选择的 DOT 只在本机浏览器中处理，不会上传到 GitHub 或其它服务器。
+
+GitHub Pages 启用后的公开地址：<https://yuernestliu.github.io/Laddergraph-Visualization/>。
 
 ---
 
 ## 1. 运行
 
-### 依赖
+### 开发依赖
 
 | 依赖 | 要求 | 说明 |
 | --- | --- | --- |
-| Python | 3.9+ | 只用标准库，无需 `pip install` |
-| Graphviz | 需要 `dot` 可执行文件 | macOS：`brew install graphviz` |
+| Node.js | 24+ | 本地开发、测试和生产构建 |
+| npm | 随 Node.js | 使用已提交的 `package-lock.json` 复现依赖 |
 
-`dot` 的查找顺序是 `shutil.which("dot")`，找不到时回退到 `/opt/homebrew/bin/dot`
-（见 [backend/graphviz_render_service.py:10](backend/graphviz_render_service.py:10)）。
+使用者访问部署好的网页时不需要安装 Node.js、Python 或系统 Graphviz。
 
 ### 启动
 
 ```bash
-python3 server.py
+npm ci
+npm run dev
 ```
 
-然后打开 <http://127.0.0.1:8000/>。
+然后打开 Vite 输出的本地地址（通常是 <http://127.0.0.1:5173/Laddergraph-Visualization/>）。
+停止服务时在终端按 `Ctrl+C`。
 
-停止服务：在终端按 `Ctrl+C`。
+> 不建议直接双击 `index.html`。浏览器的 `file://` 安全限制会阻止模块、Worker 和示例资源正常加载。
 
-> **不能直接双击 `index.html` 打开。**
-> 页面需要 `POST /api/render` 调用本机 Graphviz，`file://` 下这个接口不存在，图渲染不出来。
+生产构建与本地预览：
 
-服务只监听 `127.0.0.1:8000`（主机与端口硬编码在 [server.py:16](server.py:16)），
-把仓库根目录当作静态根，并额外提供一个接口：
+```bash
+npm run build
+npm run preview
+```
 
-- `POST /api/render`，请求体 `{"dot": "...", "engine": "dot" | "neato"}`，返回 `image/svg+xml`。
-  `engine` 只接受这两个值，其它值返回 400；单次渲染超过 60 秒会被中止并返回错误。
+`vite.config.js` 已把生产基路径固定为 `/Laddergraph-Visualization/`，用于 GitHub 项目 Pages。
+`legacy/python-backend/` 保留迁移前的 Python/系统 Graphviz 基线，仅供参考，当前网页运行时不会调用它。
 
 ### 验证是否正常
 
-页面打开后会自动加载示例图 `example_graphs/G0.gv` 及其配套节点信息
-`example_graphs/G0.csv`。命令行自检：
+页面打开后会自动加载示例图 `src/assets/example_graphs/G0.gv` 及其配套节点信息
+`src/assets/example_graphs/G0.csv`。完整自检：
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/api/render -H 'Content-Type: application/json' -d '{"dot":"digraph{a->b}","engine":"dot"}'
+npm test
+npm run build
 ```
 
-返回 `200` 即后端渲染链路正常。
+测试会分别用 WASM 的 `dot` / `neato` 生成真实 SVG，并覆盖 Worker 取消/超时和 SVG 安全清洗。
+
+### GitHub Pages 发布与日常维护
+
+首次发布前，在 GitHub 仓库 **Settings → Pages** 中把 Source 设为 **GitHub Actions**。
+之后的维护流程是：
+
+1. 修改 `index.html`、`src/`、测试或配置；
+2. 本地运行 `npm test` 与 `npm run build`；
+3. 提交并推送到 `main`；
+4. [Pages 工作流](.github/workflows/pages.yml)自动测试、构建并更新同一个公开网址。
+
+`dist/` 是 Vite 生成且被 Git 忽略的部署产物，不要直接编辑或提交。完整的首次启用、回退、
+仓库改名和隐私说明见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
 
 ---
 
@@ -74,18 +93,17 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/api/rende
 
 - **选择文件**：接受 `.gv` / `.dot` / `.txt`，选中后**立即自动渲染**。
 - **渲染**：用当前已加载的 DOT 文本重新渲染一次（改了布局/文本以外的东西想重来时用）。
-- 页面启动时自动加载 `example_graphs/G0.gv`。
+- 页面启动时自动加载 `src/assets/example_graphs/G0.gv`。
 
 > 目前没有「从目录里挑图」的界面；导入其它图时使用系统文件选择器。
 
 ### 3.2 节点信息（基因表）
 
-节点信息是独立于 `.gv` 的一份「节点 ID → 基因列表」数据。默认示例会在启动时
-自动导入同目录、同名的 `G0.csv`。
+节点信息是独立于 `.gv` 的一份「节点 ID → 基因列表」数据。默认示例的 GV 与 CSV 在构建时
+显式配对，因此 Vite 给资源加哈希后仍会自动加载正确的 `G0.csv`。
 
-点击 **导入节点信息** 时，页面会从当前站内 GV 路径去掉扩展名，并且只在同一目录
-查找同名 CSV；例如 `example_graphs/G0.gv` 只会查找 `example_graphs/G0.csv`。
-找到后直接导入；找不到或读取失败时会弹出消息，再让用户手动选择 `.csv` / `.json`。
+对于网页自身提供的 URL 图源，页面只尝试已知的配套节点信息文件；找不到或读取失败时会弹出消息，
+再让用户手动选择 `.csv` / `.json`。不要依赖或硬编码 `dist/assets/` 中的哈希文件名。
 
 浏览器不会向网页暴露系统文件选择器中本地 GV 的真实目录，也不允许网页枚举其同级文件。
 因此，从系统文件框导入任意本地 GV 后，点击按钮会直接说明这一限制，并提供手动选择入口。
@@ -97,9 +115,9 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/api/rende
 
 | 格式 | 形状 | 解析模块 |
 | --- | --- | --- |
-| JSON（**推荐**） | `{"<节点id>": ["基因A", "基因B"]}` | [app/json-node-details.js](app/json-node-details.js) |
-| 列式 CSV | 表头每列是一个节点 ID，列里是该节点的基因 | [app/ladderon-node-info.js](app/ladderon-node-info.js) |
-| 行式 CSV（旧） | 表头含 `层级` / `梯元` / `梯元id` / `重数`，最后一列是详情 | [app/csv-node-details.js](app/csv-node-details.js) |
+| JSON（**推荐**） | `{"<节点id>": ["基因A", "基因B"]}` | [src/app/json-node-details.js](src/app/json-node-details.js) |
+| 列式 CSV | 表头每列是一个节点 ID，列里是该节点的基因 | [src/app/ladderon-node-info.js](src/app/ladderon-node-info.js) |
+| 行式 CSV（旧） | 表头含 `层级` / `梯元` / `梯元id` / `重数`，最后一列是详情 | [src/app/csv-node-details.js](src/app/csv-node-details.js) |
 
 ### 3.3 布局
 
@@ -140,7 +158,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/api/rende
 过滤后的每个连通图占一个标签（`1 · 38点`、`2 · 35点`…），按节点数从大到小排。
 标签超过 20 个时自动改用下拉框。**每个标签页只显示一个连通图。**
 
-切换标签会保留各自的视口位置和选中节点（见 [app/graph-tab-state-store.js](app/graph-tab-state-store.js)）。
+切换标签会保留各自的视口位置和选中节点（见 [src/app/graph-tab-state-store.js](src/app/graph-tab-state-store.js)）。
 
 ### 3.8 层级裁切（图区右上角）
 
@@ -211,8 +229,8 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/api/rende
 点顶部 **编辑** 进入。图区加红色边框，除缩放按钮外的常规控件锁定。
 
 > ⚠️ **当前编辑模式只是一个模式外壳，没有任何实际编辑功能。**
-> 它存在的目的是给后续开发一个不污染 `graphviz-app.js` 的落点，见
-> [app/edit-mode/README.md](app/edit-mode/README.md)。
+> 它存在的目的是给后续开发一个不污染 `src/main.js` 的落点，见
+> [src/app/edit-mode/README.md](src/app/edit-mode/README.md)。
 
 编辑模式与精修模式互斥，开一个会自动关掉另一个。
 
@@ -222,64 +240,70 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8000/api/rende
 
 | 文件 | 规模 | 说明 |
 | --- | --- | --- |
-| `example_graphs/G0.gv` | 28,876 bytes / 221 个声明节点 / 420 条边 | 默认示例图 |
-| `example_graphs/G0.csv` | 460,445 bytes / 200 个信息列 | 与 G0 同名配套，启动时自动导入 |
+| `src/assets/example_graphs/G0.gv` | 28,876 bytes / 221 个声明节点 / 420 条边 | 默认示例图 |
+| `src/assets/example_graphs/G0.csv` | 460,445 bytes / 200 个信息列 | 与 G0 同名配套，启动时自动导入 |
 
 ---
 
 ## 5. 性能须知
 
-前端把完整源图保留在内存里，层级 / M 只是显示筛选器；解析和层级计算都在主线程同步跑。
-默认的 GV 与 CSV 均控制在 500,000 bytes 以内，方便页面快速启动。导入远大于默认示例的图时，
-首次解析仍可能短暂阻塞；同一标签页、同一组参数的 SVG 会被缓存。
+前端把完整源图保留在内存里，层级 / M 只是显示筛选器；解析和层级计算仍在主线程同步跑。
+Graphviz 布局在 Worker 内完成，大图布局不会锁死页面主线程；新请求会真正终止仍在计算的旧 Worker，
+单次渲染默认 60 秒超时。默认的 GV 与 CSV 均控制在 500,000 bytes 以内；同一标签页、同一组参数的
+SVG 会被缓存。性能和内存上限最终仍取决于访问者的设备与浏览器。
 
 ---
 
 ## 6. 项目结构
 
-```
-index.html                     页面结构与样式（不放业务逻辑）
-graphviz-app.js                前端总控制器：接线、状态、渲染流程
-graphviz-core.js               图数据层：DOT 解析 / 层级 / 过滤 / DOT 序列化（无 DOM）
-graphviz-svg-renderer.js       SVG 视图层：高亮、缩放、平移、Label 重绘
-server.py                      HTTP 层：静态文件 + POST /api/render
-backend/
-  graphviz_render_service.py   Graphviz 子进程封装：render_dot_to_svg(...)
-app/
-  ui.js                        纯界面更新（状态文字、标签条、按钮禁用态）
-  display-components.js        连通图切分 + 最小网络规模 M 过滤
-  layer-utils.js               层级裁剪 / 文案 / 合适层级
-  graph-tab-state-store.js     每个标签页的视口与 SVG 缓存
-  node-info-source.js          节点信息来源统一入口（JSON 优先，CSV 兼容）
-  json-node-details.js         JSON 节点信息解析
-  ladderon-node-info.js        列式 CSV 解析
-  csv-node-details.js          行式 CSV 解析（旧格式）
-  edit-mode/                   编辑模式（当前仅模式边界）
-  refine-mode/                 精修模式：状态 / 投影 / 工具栏
-  gene-pair-export/            单节点与双节点基因导出
-example_graphs/                默认示例图 G0.gv 与配套 G0.csv
-archive/                       已归档的历史文档，不要按它操作
+```text
+index.html                         Vite HTML 入口，只放页面结构
+src/
+  main.js                          前端总控制器：接线、状态、渲染流程
+  styles.css                       页面样式与响应式布局
+  core/graphviz-core.js            DOT 解析 / 层级 / 过滤 / 序列化
+  rendering/graphviz-svg-renderer.js
+                                   SVG 高亮、缩放、平移、Label 重绘
+  app/                             UI、Worker、模式与节点信息模块
+  assets/example_graphs/           默认 G0.gv 与配套 G0.csv
+
+tests/                             Vitest 自动测试
+docs/
+  ARCHITECTURE.md                  模块边界与协作约束
+  DEPLOYMENT.md                    GitHub Pages 部署与维护
+  archive/HANDOFF.md               历史交接文档（不要按它操作）
+legacy/python-backend/             旧 Python/系统 Graphviz 参考实现
+.github/workflows/pages.yml        main 分支自动测试、构建与 Pages 部署
+package.json / package-lock.json   固定依赖与开发命令
+vite.config.js                     Pages 子路径和构建配置
+dist/                              本地生成目录（忽略，不提交）
 ```
 
-模块分工与协作约束见 [ARCHITECTURE.md](ARCHITECTURE.md)；
-各功能模块另有自己的 README（`app/edit-mode/`、`app/refine-mode/`、`app/gene-pair-export/`）。
+- **生产源文件**：`index.html`、`src/`、`tests/`、`package*.json`、`vite.config.js` 和工作流。
+- **生成文件**：`dist/`、`coverage/`、`node_modules/`，均由命令重建，不手工维护。
+- **历史参考**：`legacy/` 与 `docs/archive/`，不参与生产运行，也不应成为新功能依赖。
+
+模块分工与协作约束见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)；
+各功能模块另有自己的 README（`src/app/edit-mode/`、`src/app/refine-mode/`、
+`src/app/gene-pair-export/`）。
 
 ### 修改前先读
 
 | 想改什么 | 从哪里开始 |
 | --- | --- |
-| 图算法、层级、DOT 序列化 | `graphviz-core.js` |
-| 高亮、缩放、SVG 交互 | `graphviz-svg-renderer.js` |
-| 页面行为、控件联动 | `graphviz-app.js` + `app/` |
-| 界面文案与禁用态 | `app/ui.js` |
-| 布局与样式 | `index.html` |
-| Graphviz 调用策略、超时、错误处理 | `backend/graphviz_render_service.py` |
+| 图算法、层级、DOT 序列化 | `src/core/graphviz-core.js` |
+| 高亮、缩放、SVG 交互 | `src/rendering/graphviz-svg-renderer.js` |
+| 页面行为、控件联动 | `src/main.js` + `src/app/` |
+| 界面文案与禁用态 | `src/app/ui.js` |
+| 页面结构与样式 | `index.html` + `src/styles.css` |
+| Graphviz 调用策略、超时、错误处理 | `src/app/graphviz-render-client.js` + `src/app/graphviz-wasm.js` |
+| SVG 安全边界 | `src/app/svg-sanitizer.js` |
 
-没有构建步骤、没有 `package.json`、没有 npm 依赖 —— 直接改文件刷新浏览器即可。
-语法自检：
+修改后至少运行：
 
 ```bash
-node --check graphviz-app.js && node --check graphviz-core.js && node --check graphviz-svg-renderer.js
+npm test
+npm run build
 ```
 
 ---
@@ -292,4 +316,5 @@ node --check graphviz-app.js && node --check graphviz-core.js && node --check gr
 - 浏览器无法自动读取系统文件框所选 GV 的同级 CSV；此时会提示用户手动选择。
 - 精修工具栏在图区左下角，窗口不高时需要滚动才能看到。
 - 大图（万级节点）的 DOT 解析仍在主线程，会卡住页面约 6 秒。
+- Graphviz WASM 使用访问者设备的 CPU 和内存；极大图可能触发 60 秒超时或浏览器内存限制。
 - 每个标签页的 SVG 渲染缓存没有上限，长时间浏览大图会持续占用内存。

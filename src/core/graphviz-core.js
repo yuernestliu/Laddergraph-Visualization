@@ -1,4 +1,7 @@
-export const DEFAULT_DOT_PATH = "./example_graphs/G0.gv";
+export const DEFAULT_DOT_PATH = new URL("../assets/example_graphs/G0.gv", import.meta.url).href;
+export const DEFAULT_NODE_DETAILS_PATH = new URL("../assets/example_graphs/G0.csv", import.meta.url).href;
+export const DEFAULT_DOT_DISPLAY_PATH = "example_graphs/G0.gv";
+export const DEFAULT_NODE_DETAILS_DISPLAY_PATH = "example_graphs/G0.csv";
 export const FONT_FAMILY = "Avenir Next,PingFang SC,Noto Sans SC,sans-serif";
 
 const HIDDEN_NODE_IDS = new Set(["-1"]);

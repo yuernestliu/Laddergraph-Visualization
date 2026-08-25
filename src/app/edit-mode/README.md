@@ -4,18 +4,18 @@
 
 `edit-mode/` owns the editing-mode boundary for the Laddergraph UI.
 
-Current edit mode is an interface shell, not the real graph-editing feature. It gives future agents a safe place to add editing tools without putting editing logic back into `graphviz-app.js`.
+Current edit mode is an interface shell, not the real graph-editing feature. It gives future agents a safe place to add editing tools without putting editing logic back into `src/main.js`.
 
 ## Current Entry Points
 
 - `edit-controller.js`
   - Main controller.
   - Exports `createEditModeController(...)`.
-  - `graphviz-app.js` imports it directly; there is no compatibility wrapper.
+  - `src/main.js` imports it directly; there is no compatibility wrapper.
 
 ## Contract
 
-The controller is created from `graphviz-app.js`:
+The controller is created from `src/main.js`:
 
 ```js
 createEditModeController({
@@ -45,7 +45,7 @@ Events:
 - While edit mode is enabled, normal controls are locked.
 - Controls inside `[data-edit-mode-control]` remain available.
 - Zoom controls must remain available in edit mode.
-- `精修` mode should not be active at the same time as edit mode; `graphviz-app.js` currently enforces this.
+- `精修` mode should not be active at the same time as edit mode; `src/main.js` currently enforces this.
 
 ## Where To Add Real Editing
 
@@ -59,7 +59,7 @@ edit-mode/
   edit-selection-tools.js
 ```
 
-Keep `graphviz-app.js` as the coordinator only. Do not put concrete editing behavior there.
+Keep `src/main.js` as the coordinator only. Do not put concrete editing behavior there.
 
 ## What Not To Do
 

@@ -5,7 +5,7 @@
 > 「概览模式」「`app.js`」「`app/edit-mode.js` 兼容入口」等内容也已经从代码里移除。
 >
 > 当前有效文档：
-> - 运行方式与功能说明：[../README.md](../README.md)
+> - 运行方式与功能说明：[../../README.md](../../README.md)
 > - 模块边界与协作约束：[../ARCHITECTURE.md](../ARCHITECTURE.md)
 >
 > 保留这份文件只是为了追溯当初的设计取舍。

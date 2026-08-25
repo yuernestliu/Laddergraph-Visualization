@@ -1,5 +1,8 @@
 import {
+  DEFAULT_DOT_DISPLAY_PATH,
   DEFAULT_DOT_PATH,
+  DEFAULT_NODE_DETAILS_DISPLAY_PATH,
+  DEFAULT_NODE_DETAILS_PATH,
   NODE_SIZE_MODE_OPTIONS,
   applyVisibleSubgraphFilters,
   buildNodeLayerMap,
@@ -7,8 +10,9 @@ import {
   sanitizeParsedGraph,
   serializeGraphToDot,
   summarizeGraph,
-} from "./graphviz-core.js";
-import { GraphvizSvgRenderer } from "./graphviz-svg-renderer.js";
+} from "./core/graphviz-core.js";
+import { GraphvizRenderClient } from "./app/graphviz-render-client.js";
+import { GraphvizSvgRenderer } from "./rendering/graphviz-svg-renderer.js";
 import {
   DEFAULT_MIN_COMPONENT_SIZE,
   MAX_INLINE_COMPONENT_TABS,
@@ -21,7 +25,9 @@ import { createGenePairExportController } from "./app/gene-pair-export/gene-pair
 import { GraphTabStateStore } from "./app/graph-tab-state-store.js";
 import { clampLayerDepth, getLayerDepthLabel, getSuggestedLayerDepth, getTrimmedLayerCount } from "./app/layer-utils.js";
 import { buildBestNodeDetailIndex, getSameNameCsvCandidate } from "./app/node-info-source.js";
+import { createLoadGenerationTracker } from "./app/load-generation.js";
 import { createRefineModeController } from "./app/refine-mode/refine-controller.js";
+import { isCurrentRender } from "./app/render-token.js";
 import {
   renderGraphTabs as renderGraphTabsUi,
   setStatus as setStatusUi,
@@ -32,7 +38,6 @@ import {
   updateNodeDetailPanel,
 } from "./app/ui.js";
 
-const RENDER_API_PATH = "/api/render";
 const DEFAULT_NODE_SIZE_MODE = "sqrt";
 const DEFAULT_LABEL_FONT_SIZE = 10;
 const MIN_LABEL_FONT_SIZE = 6;
@@ -93,6 +98,8 @@ const renderer = new GraphvizSvgRenderer(networkEl, {
   },
 });
 const tabStateStore = new GraphTabStateStore();
+const graphvizRenderClient = new GraphvizRenderClient();
+const loadGenerationTracker = createLoadGenerationTracker();
 export const editModeController = createEditModeController({
   rootEl: networkShell,
   toggleButton: editModeBtn,
@@ -157,7 +164,6 @@ let currentAutoLayerDepth = 0;
 let currentRenderedLayerDepth = 0;
 let currentRenderedSubgraph = null;
 let currentRenderToken = 0;
-let currentRenderAbortController = null;
 let currentGraphSource = null;
 let currentNodeDetailIndex = null;
 let currentNodeDetailSource = "";
@@ -213,7 +219,7 @@ function buildRenderKey(renderedDepth = currentRenderedLayerDepth) {
   ].join("|");
 }
 
-function clearGraph() {
+function clearGraph({ preserveNodeDetails = false } = {}) {
   sourceParsedGraph = null;
   currentGraphStats = null;
   currentDisplayComponentState = null;
@@ -233,9 +239,11 @@ function clearGraph() {
   minComponentSizeMax = DEFAULT_MIN_COMPONENT_SIZE;
   layerDepthIsAuto = true;
   currentGraphSource = null;
-  currentNodeDetailIndex = null;
-  currentNodeDetailSource = "";
-  currentNodeDetailStatus = "点击图中的节点查看节点信息详情。";
+  if (!preserveNodeDetails) {
+    currentNodeDetailIndex = null;
+    currentNodeDetailSource = "";
+    currentNodeDetailStatus = "点击图中的节点查看节点信息详情。";
+  }
   selectedNodeId = null;
   tabStateStore.reset();
   refineModeController?.clear();
@@ -347,31 +355,49 @@ function showNodeInfoFallback(message) {
   nodeDetailFileInput?.click();
 }
 
-async function tryLoadSameNameCsv(sourceName) {
-  const candidate = getSameNameCsvCandidate(sourceName);
+async function tryLoadSameNameCsv(
+  sourceName,
+  candidateOverride = "",
+  displayNameOverride = "",
+  loadToken = loadGenerationTracker.beginNodeInfoAction("same-name-csv"),
+) {
+  const candidate = candidateOverride || getSameNameCsvCandidate(sourceName);
+  const displayName = displayNameOverride || candidate;
   if (!candidate) {
     return { outcome: "missing", candidate: "" };
   }
 
-  currentNodeDetailStatus = `正在同目录查找 ${candidate}...`;
+  if (!loadGenerationTracker.isCurrentNodeInfo(loadToken)) {
+    return { outcome: "stale", candidate };
+  }
+  currentNodeDetailStatus = `正在同目录查找 ${displayName}...`;
   refreshNodeDetailViews();
 
   try {
     const response = await fetch(encodeURI(candidate), { cache: "no-store" });
+    if (!loadGenerationTracker.isCurrentNodeInfo(loadToken)) {
+      return { outcome: "stale", candidate };
+    }
     if (!response.ok) {
       if (!currentNodeDetailIndex) {
-        currentNodeDetailStatus = `同目录没有找到 ${candidate}。`;
+        currentNodeDetailStatus = `同目录没有找到 ${displayName}。`;
         refreshNodeDetailViews();
       }
       return { outcome: "missing", candidate };
     }
 
     const nodeInfoText = await response.text();
-    applyNodeDetailText(nodeInfoText, candidate, "已自动导入节点信息");
+    if (!loadGenerationTracker.isCurrentNodeInfo(loadToken)) {
+      return { outcome: "stale", candidate };
+    }
+    applyNodeDetailText(nodeInfoText, displayName, "已自动导入节点信息");
     return { outcome: "loaded", candidate };
   } catch (error) {
+    if (!loadGenerationTracker.isCurrentNodeInfo(loadToken)) {
+      return { outcome: "stale", candidate };
+    }
     if (!currentNodeDetailIndex) {
-      currentNodeDetailStatus = `读取 ${candidate} 失败：${error.message}`;
+      currentNodeDetailStatus = `读取 ${displayName} 失败：${error.message}`;
       refreshNodeDetailViews();
     }
     console.warn(`Failed to load node details from ${candidate}:`, error);
@@ -381,11 +407,14 @@ async function tryLoadSameNameCsv(sourceName) {
 
 async function loadNodeDetailsFromFile(file) {
   if (!file) return;
+  const loadToken = loadGenerationTracker.beginNodeInfoAction(`manual-node-info:${file.name}`);
 
   try {
     const nodeInfoText = await file.text();
+    if (!loadGenerationTracker.isCurrentNodeInfo(loadToken)) return;
     applyNodeDetailText(nodeInfoText, file.name);
   } catch (error) {
+    if (!loadGenerationTracker.isCurrentNodeInfo(loadToken)) return;
     currentNodeDetailIndex = null;
     currentNodeDetailSource = "";
     currentNodeDetailStatus = `节点信息导入失败：${error.message}`;
@@ -570,30 +599,7 @@ function renderGraphTabs() {
 }
 
 async function requestSvgRender(dot, engine) {
-  if (currentRenderAbortController) {
-    currentRenderAbortController.abort();
-  }
-
-  currentRenderAbortController = new AbortController();
-  const response = await fetch(RENDER_API_PATH, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ dot, engine }),
-    cache: "no-store",
-    signal: currentRenderAbortController.signal,
-  });
-
-  if (!response.ok) {
-    const payload = await response.json().catch(async () => ({
-      error: await response.text(),
-    }));
-    const details = payload.details ? ` ${payload.details}` : "";
-    throw new Error(`${payload.error || `HTTP ${response.status}`}${details}`.trim());
-  }
-
-  return response.text();
+  return graphvizRenderClient.render(dot, engine);
 }
 
 function primeRenderableComponent(activeTab) {
@@ -614,6 +620,8 @@ async function renderActiveGraph(statusPrefix = "") {
   const activeTab = getActiveGraphTab();
 
   if (!sourceParsedGraph || !activeTab) {
+    currentRenderToken += 1;
+    graphvizRenderClient.cancel("当前图已清空。");
     renderer.clear();
     currentTabBaseSubgraph = null;
     currentSubgraph = null;
@@ -649,6 +657,9 @@ async function renderActiveGraph(statusPrefix = "") {
   const cachedRender = tabStateStore.getRenderCache(activeTab.id, currentRenderKey);
 
   const renderToken = ++currentRenderToken;
+  if (cachedRender) {
+    graphvizRenderClient.cancel("已使用本地渲染缓存。");
+  }
   renderer.setLoading(true);
   setStatus("渲染中...");
 
@@ -668,6 +679,8 @@ async function renderActiveGraph(statusPrefix = "") {
     });
 
     await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    if (!isCurrentRender(renderToken, currentRenderToken)) return;
+
     const savedState = tabStateStore.getViewState(activeTab.id, currentViewKey);
     const restoredViewport = renderer.restoreViewState(savedState, currentViewKey);
     if (!restoredViewport) {
@@ -682,6 +695,7 @@ async function renderActiveGraph(statusPrefix = "") {
     setStatus("");
   } catch (error) {
     if (error?.name === "AbortError") return;
+    if (!isCurrentRender(renderToken, currentRenderToken)) return;
     renderer.clear();
     currentSubgraph = null;
     updateLayerDepthControls();
@@ -692,7 +706,9 @@ async function renderActiveGraph(statusPrefix = "") {
     );
     console.error(error);
   } finally {
-    renderer.setLoading(false);
+    if (renderToken === currentRenderToken) {
+      renderer.setLoading(false);
+    }
   }
 }
 
@@ -710,6 +726,8 @@ function renderGraph(statusPrefix = "") {
     updateMinComponentSizeInfo();
     renderActiveGraph(statusPrefix);
   } catch (error) {
+    currentRenderToken += 1;
+    graphvizRenderClient.cancel("DOT 解析失败，已停止旧渲染任务。");
     renderer.clear();
     sourceParsedGraph = null;
     currentGraphStats = null;
@@ -747,19 +765,39 @@ function applyLayout() {
 }
 
 async function loadDefaultGraph() {
+  const defaultLoad = loadGenerationTracker.beginGraphAction("default-graph");
   try {
     const response = await fetch(DEFAULT_DOT_PATH, { cache: "no-store" });
+    if (!loadGenerationTracker.isCurrentGraph(defaultLoad.graphToken)) return;
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
-    currentDotText = await response.text();
-    currentGraphSource = { kind: "url", sourceName: DEFAULT_DOT_PATH };
-    resetNodeDetails();
-    await tryLoadSameNameCsv(DEFAULT_DOT_PATH);
-    renderGraph(`已加载默认图：${DEFAULT_DOT_PATH}`);
+    const dotText = await response.text();
+    if (!loadGenerationTracker.isCurrentGraph(defaultLoad.graphToken)) return;
+    currentDotText = dotText;
+    currentGraphSource = {
+      kind: "url",
+      sourceName: DEFAULT_DOT_PATH,
+      nodeDetailsSourceName: DEFAULT_NODE_DETAILS_PATH,
+      nodeDetailsDisplayName: DEFAULT_NODE_DETAILS_DISPLAY_PATH,
+    };
+    if (loadGenerationTracker.isCurrentNodeInfo(defaultLoad.nodeInfoToken)) {
+      resetNodeDetails();
+      await tryLoadSameNameCsv(
+        DEFAULT_DOT_PATH,
+        DEFAULT_NODE_DETAILS_PATH,
+        DEFAULT_NODE_DETAILS_DISPLAY_PATH,
+        defaultLoad.nodeInfoToken,
+      );
+    }
+    if (!loadGenerationTracker.isCurrentGraph(defaultLoad.graphToken)) return;
+    renderGraph(`已加载默认图：${DEFAULT_DOT_DISPLAY_PATH}`);
   } catch (error) {
+    if (!loadGenerationTracker.isCurrentGraph(defaultLoad.graphToken)) return;
     currentDotText = "";
-    clearGraph();
+    clearGraph({
+      preserveNodeDetails: !loadGenerationTracker.isCurrentNodeInfo(defaultLoad.nodeInfoToken),
+    });
     renderGraphTabs();
     setStatus(`默认图加载失败：${error.message}`, true);
     console.warn("Failed to load default graph:", error);
@@ -769,12 +807,18 @@ async function loadDefaultGraph() {
 fileInput.addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
   if (!file) return;
+  const localLoad = loadGenerationTracker.beginGraphAction(`local-graph:${file.name}`);
   try {
-    currentDotText = await file.text();
+    const dotText = await file.text();
+    if (!loadGenerationTracker.isCurrentGraph(localLoad.graphToken)) return;
+    currentDotText = dotText;
     currentGraphSource = { kind: "local-file", sourceName: file.name };
-    resetNodeDetails(`已加载 ${file.name}；点击“导入节点信息”查找同名 CSV。`);
+    if (loadGenerationTracker.isCurrentNodeInfo(localLoad.nodeInfoToken)) {
+      resetNodeDetails(`已加载 ${file.name}；点击“导入节点信息”查找同名 CSV。`);
+    }
     renderGraph(`已加载文件：${file.name}`);
   } catch (error) {
+    if (!loadGenerationTracker.isCurrentGraph(localLoad.graphToken)) return;
     setStatus(`读取文件失败：${error.message}`, true);
   }
 });
@@ -788,8 +832,13 @@ if (importNodeDetailCsvBtn && nodeDetailFileInput) {
 
     const candidate = getSameNameCsvCandidate(currentGraphSource.sourceName);
     if (currentGraphSource.kind === "url") {
-      const result = await tryLoadSameNameCsv(currentGraphSource.sourceName);
+      const result = await tryLoadSameNameCsv(
+        currentGraphSource.sourceName,
+        currentGraphSource.nodeDetailsSourceName,
+        currentGraphSource.nodeDetailsDisplayName,
+      );
       if (result.outcome === "loaded") return;
+      if (result.outcome === "stale") return;
 
       const reason = result.outcome === "error"
         ? `读取 ${result.candidate} 失败。`
@@ -934,6 +983,8 @@ window.addEventListener("resize", () => {
     renderer.fitToView();
   }
 });
+
+window.addEventListener("pagehide", () => graphvizRenderClient.dispose());
 
 if (nodeSizeModeSelect) {
   for (const option of NODE_SIZE_MODE_OPTIONS) {

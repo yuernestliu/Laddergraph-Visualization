@@ -20,11 +20,11 @@ User workflow:
 - `gene-pair-export.js`
   - Main controller and CSV export helpers.
   - Tracks the primary and secondary selected nodes.
-  - Reads node details through a callback supplied by `graphviz-app.js`.
+  - Reads node details through a callback supplied by `src/main.js`.
 
 ## Contract
 
-Created from `graphviz-app.js`:
+Created from `src/main.js`:
 
 ```js
 createGenePairExportController({
@@ -71,11 +71,11 @@ The module expects `getNodeDetail(nodeId)` to return one of:
 - fallback `detail.rawDetail`
 
 Current primary format is JSON node information such as `03_300_ladderons.json`, parsed by
-`app/json-node-details.js`. Legacy CSV node information remains supported.
+`src/app/json-node-details.js`. Legacy CSV node information remains supported.
 
 ## What Not To Do
 
 - Do not parse CSV again in this module.
 - Do not fetch files here.
 - Do not mutate graph data.
-- Do not put this export logic into `graphviz-app.js`; keep `graphviz-app.js` as wiring only.
+- Do not put this export logic into `src/main.js`; keep `src/main.js` as wiring only.

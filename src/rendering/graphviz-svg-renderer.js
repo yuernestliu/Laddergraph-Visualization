@@ -6,7 +6,8 @@ import {
   normalizeDisplayLabel,
   readableTextColor,
   splitDisplayLabel,
-} from "./graphviz-core.js";
+} from "../core/graphviz-core.js";
+import { sanitizeGraphvizSvgMarkup } from "../app/svg-sanitizer.js";
 
 const HIGHLIGHT_RED = "#e60023";
 const INCOMING_GREEN = "#2f9e44";
@@ -152,7 +153,7 @@ export class GraphvizSvgRenderer {
 
   parseSvgMarkup(svgMarkup) {
     const template = document.createElement("template");
-    template.innerHTML = svgMarkup.trim();
+    template.innerHTML = sanitizeGraphvizSvgMarkup(svgMarkup);
     const svg = template.content.querySelector("svg");
     if (!svg) {
       throw new Error("Graphviz 没有返回有效 SVG。");

@@ -1,4 +1,4 @@
-import { applyVisibleSubgraphFilters, summarizeGraph } from "../graphviz-core.js";
+import { applyVisibleSubgraphFilters, summarizeGraph } from "../core/graphviz-core.js";
 
 export function clampLayerDepth(value, maxDepth) {
   return Math.max(0, Math.min(maxDepth, Number.isFinite(value) ? Math.trunc(value) : 0));
