@@ -59,7 +59,7 @@ export function updateMinComponentSizeControl(controlEls, options) {
     minComponentSizeInput.max = String(maxSize);
     minComponentSizeInput.value = String(currentSize);
     minComponentSizeInput.disabled = !enabled;
-    minComponentSizeInput.title = `只显示总结点数大于等于 ${currentSize} 的网络`;
+    minComponentSizeInput.title = `视图中隐藏节点数小于 ${currentSize} 的图`;
   }
 
   if (minComponentSizeDownBtn) {
@@ -84,8 +84,8 @@ export function updateMinComponentSizeControl(controlEls, options) {
 
   const isolatedNote = isolatedCount > 0 ? `；已忽略 ${isolatedCount} 个孤立点` : "";
   minComponentSizeInfo.textContent =
-    `M ≥ ${currentSize}；可显示 ${displayComponentCount}/${eligibleComponentCount} 个网络` +
-    `；最大 ${maxSize} 点${isolatedNote}。`;
+    `n=${currentSize}；视图中已隐藏节点数小于 ${currentSize} 的图；` +
+    `可显示 ${displayComponentCount}/${eligibleComponentCount} 个网络；最大 ${maxSize} 点${isolatedNote}。`;
 }
 
 export function updateLayerDepthControls(controlEls, options) {

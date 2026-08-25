@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Graph 可视化交互台</title>
+    <title>梯径(ladderpath)可视化平台</title>
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
@@ -65,20 +65,31 @@
             </div>
 
             <div class="section component-section">
-              <h2>最小网络规模</h2>
-              <div class="component-size-control">
-                <button id="minComponentSizeDownBtn" class="stepper-btn" type="button" aria-label="减小 M">-</button>
-                <input id="minComponentSizeInput" type="number" min="2" step="1" value="2" inputmode="numeric" />
-                <button id="minComponentSizeUpBtn" class="stepper-btn" type="button" aria-label="增大 M">+</button>
+              <div class="component-filter-row">
+                <label class="component-filter-label" for="minComponentSizeInput">视图中隐藏 节点数&lt;n 的图，n=</label>
+                <div class="component-size-control">
+                  <button id="minComponentSizeDownBtn" class="stepper-btn" type="button" aria-label="减小 n">-</button>
+                  <input
+                    id="minComponentSizeInput"
+                    type="number"
+                    min="2"
+                    step="1"
+                    value="2"
+                    inputmode="numeric"
+                    aria-label="隐藏图的节点数阈值 n，最小值为 2"
+                  />
+                  <button id="minComponentSizeUpBtn" class="stepper-btn" type="button" aria-label="增大 n">+</button>
+                </div>
+                <div class="quick-picks" aria-label="n 的参考值">
+                  <span class="quick-picks-label" aria-hidden="true">参考</span>
+                  <button type="button" data-min-component-size="2" aria-label="将 n 设置为 2">2</button>
+                  <button type="button" data-min-component-size="3" aria-label="将 n 设置为 3">3</button>
+                  <button type="button" data-min-component-size="5" aria-label="将 n 设置为 5">5</button>
+                  <button type="button" data-min-component-size="10" aria-label="将 n 设置为 10">10</button>
+                  <button type="button" data-min-component-size="20" aria-label="将 n 设置为 20">20</button>
+                </div>
+                <span id="minComponentSizeInfo" class="sr-only" aria-live="polite">加载图后可设置。</span>
               </div>
-              <div class="quick-picks" aria-label="常用最小网络规模">
-                <button type="button" data-min-component-size="2">&ge;2</button>
-                <button type="button" data-min-component-size="3">&ge;3</button>
-                <button type="button" data-min-component-size="5">&ge;5</button>
-                <button type="button" data-min-component-size="10">&ge;10</button>
-                <button type="button" data-min-component-size="20">&ge;20</button>
-              </div>
-              <p id="minComponentSizeInfo" class="hint">加载图后可设置。</p>
             </div>
           </div>
 

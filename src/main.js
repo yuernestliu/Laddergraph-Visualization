@@ -514,7 +514,7 @@ function applyMinComponentSize(nextSize) {
 
   updateMinComponentSizeInfo();
   if (!sourceParsedGraph) return;
-  renderActiveGraph("已切换最小网络规模");
+  renderActiveGraph("已更新视图过滤：隐藏节点数 < n 的图");
 }
 
 function stepMinComponentSize(delta) {

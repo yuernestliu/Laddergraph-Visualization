@@ -40,13 +40,14 @@ body {
 
 .control-sections {
   display: grid;
-  grid-template-areas: "import layout text size component";
+  grid-template-areas:
+    "import layout text size"
+    "component component component component";
   grid-template-columns:
     minmax(380px, 1.5fr)
     minmax(180px, 0.7fr)
     minmax(238px, 0.9fr)
-    minmax(136px, 0.55fr)
-    minmax(270px, 1fr);
+    minmax(136px, 0.55fr);
   gap: 8px 12px;
   min-width: 0;
 }
@@ -81,6 +82,10 @@ body {
 
 .component-section {
   grid-area: component;
+  padding: 6px 8px;
+  border: 1px solid rgba(11, 114, 133, 0.18);
+  border-radius: 8px;
+  background: rgba(232, 242, 244, 0.42);
 }
 
 .control-sections .row {
@@ -118,11 +123,28 @@ body {
   font-size: 12px;
 }
 
+.component-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: thin;
+}
+
+.component-filter-label {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .component-size-control {
   display: grid;
-  grid-template-columns: auto minmax(54px, 76px) auto;
-  gap: 6px;
+  grid-template-columns: 30px minmax(46px, 58px) 30px;
+  gap: 4px;
   align-items: center;
+  flex: 0 0 auto;
 }
 
 .component-size-control input[type="number"] {
@@ -164,9 +186,10 @@ body {
 
 .quick-picks {
   display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-  margin-top: 6px;
+  gap: 4px;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  margin: 0;
 }
 
 .quick-picks button {
@@ -175,10 +198,28 @@ body {
   border-radius: 999px;
 }
 
+.quick-picks-label {
+  align-self: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .quick-picks button.active {
   color: #fff;
   background: var(--accent);
   border-color: var(--accent);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .edit-mode-launcher {
@@ -606,7 +647,8 @@ button.primary {
   .control-sections {
     grid-template-areas:
       "import import layout"
-      "text size component";
+      "text text size"
+      "component component component";
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
@@ -631,7 +673,8 @@ button.primary {
     grid-template-areas:
       "import import"
       "layout text"
-      "size component";
+      "size size"
+      "component component";
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
