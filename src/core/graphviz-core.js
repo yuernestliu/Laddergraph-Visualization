@@ -4,8 +4,6 @@ export const DEFAULT_DOT_DISPLAY_PATH = "example_graphs/G0.gv";
 export const DEFAULT_NODE_DETAILS_DISPLAY_PATH = "example_graphs/G0.csv";
 export const FONT_FAMILY = "Avenir Next,PingFang SC,Noto Sans SC,sans-serif";
 
-const HIDDEN_NODE_IDS = new Set(["-1"]);
-
 const SIZE_MODE_CONFIG = {
   fixed: {
     label: "固定",
@@ -54,6 +52,7 @@ export function summarizeGraph(parsed) {
   return {
     nodeCount: parsed.nodes.length,
     edgeCount: parsed.edges.length,
+    targetCount: parsed.nodes.filter((node) => isTargetNode(node.attrs, node.id)).length,
   };
 }
 
@@ -135,7 +134,14 @@ export function isExternalLabelEllipseNode(attrs = {}, nodeId = "") {
 }
 
 function isHiddenNode(node) {
-  return HIDDEN_NODE_IDS.has(String(node.id));
+  const attrs = node.attrs || {};
+  return (
+    String(node.id) === "-1" &&
+    normalizeDisplayLabel(attrs.label).trim() === "." &&
+    isWhiteColor(attrs.color) &&
+    isWhiteColor(attrs.fillcolor) &&
+    String(attrs.rank || "").trim().toLowerCase() === "max"
+  );
 }
 
 export function sanitizeParsedGraph(parsed) {

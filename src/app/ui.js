@@ -102,6 +102,31 @@ export function updateLayerDepthControls(controlEls, options) {
   layerDepthAllBtn.disabled = !hasGraph || currentLayerDepth <= 0;
 }
 
+export function renderOmittedSingleTargets(summaryEls, nodeIds = [], hasGraph = true) {
+  const { summaryEl, countEl, idsEl } = summaryEls;
+  if (!summaryEl || !countEl || !idsEl) return;
+
+  const normalizedIds = Array.from(nodeIds, String);
+  summaryEl.hidden = !hasGraph;
+  countEl.textContent = String(normalizedIds.length);
+  idsEl.replaceChildren();
+
+  if (normalizedIds.length === 0) {
+    const emptyState = document.createElement("span");
+    emptyState.className = "omitted-target-empty";
+    emptyState.textContent = "无";
+    idsEl.append(emptyState);
+    return;
+  }
+
+  for (const nodeId of normalizedIds) {
+    const chip = document.createElement("code");
+    chip.className = "omitted-target-id";
+    chip.textContent = nodeId;
+    idsEl.append(chip);
+  }
+}
+
 export function renderGraphTabs(options) {
   const {
     tabsEl,
@@ -117,9 +142,16 @@ export function renderGraphTabs(options) {
     summarizeGraph,
     getTrimmedLayerCount,
     maxInlineTabs,
+    omittedSingleTargetIds,
+    omittedSingleTargetSummaryEls,
     onSelectTab,
   } = options;
 
+  renderOmittedSingleTargets(
+    omittedSingleTargetSummaryEls || {},
+    omittedSingleTargetIds,
+    Boolean(sourceParsedGraph),
+  );
   tabsEl.innerHTML = "";
   if (componentSelectEl) {
     componentSelectEl.innerHTML = "";
@@ -152,8 +184,8 @@ export function renderGraphTabs(options) {
 
   graphTabsInfo.textContent =
     `层级 ${visibleLayers}/${totalLayers}。` +
-    `共 ${totalStats.nodeCount} 节点 / ${totalStats.edgeCount} 边；` +
-    `目前显示：${visibleStats.nodeCount} 节点 / ${visibleStats.edgeCount} 边。`;
+    `共 ${totalStats.nodeCount} 节点 / target ${totalStats.targetCount || 0} / ${totalStats.edgeCount} 边；` +
+    `目前显示：${visibleStats.nodeCount} 节点 / target ${visibleStats.targetCount || 0} / ${visibleStats.edgeCount} 边。`;
 
   if (currentGraphTabs.length === 1) {
     tabsEl.hidden = true;

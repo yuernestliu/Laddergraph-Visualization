@@ -101,11 +101,39 @@
       </section>
 
       <section class="panel">
-        <div id="graphTabs" class="tab-strip" hidden></div>
-        <select id="graphComponentSelect" class="component-select" hidden aria-label="选择网络"></select>
+        <div class="graph-navigation">
+          <div class="graph-component-navigation">
+            <div id="graphTabs" class="tab-strip" hidden></div>
+            <select id="graphComponentSelect" class="component-select" hidden aria-label="选择网络"></select>
+          </div>
+          <form id="nodeSearchForm" class="node-search" role="search" novalidate>
+            <label class="sr-only" for="nodeSearchInput">搜索节点 ID</label>
+            <input
+              id="nodeSearchInput"
+              type="search"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="搜索节点 ID，例如 -1"
+              aria-describedby="nodeSearchFeedback"
+            />
+            <button id="nodeSearchBtn" class="primary" type="submit">定位</button>
+            <span id="nodeSearchFeedback" class="node-search-feedback" role="status" aria-live="polite"></span>
+          </form>
+        </div>
         <div class="graph-meta">
           <p id="graphTabsInfo" class="hint">当前显示：全图</p>
           <p id="status" hidden></p>
+        </div>
+        <div id="omittedSingleTargetsSummary" class="omitted-target-summary" hidden>
+          <div class="omitted-target-heading">
+            <span>未进入标签页的单 target</span>
+            <strong id="omittedSingleTargetCount">0</strong>
+          </div>
+          <div
+            id="omittedSingleTargetIds"
+            class="omitted-target-ids"
+            aria-label="未进入标签页的单 target ID"
+          ></div>
         </div>
         <div class="graph-workspace">
           <div id="networkShell" class="network-shell">

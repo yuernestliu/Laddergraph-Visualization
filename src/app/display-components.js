@@ -1,3 +1,5 @@
+import { isTargetNode } from "../core/graphviz-core.js";
+
 export const DEFAULT_MIN_COMPONENT_SIZE = 2;
 export const MAX_INLINE_COMPONENT_TABS = 20;
 
@@ -34,9 +36,10 @@ function makeComponentId(nodeIds, edgeIds) {
   return `component-${nodeIds.length}-${edgeIds.length}-${hashParts([...nodeIds, ...edgeIds])}`;
 }
 
-function createComponentDescriptor(parsed, nodeIds) {
+function createComponentDescriptor(parsed, nodeIds, targetNodeIdSet) {
   const uniqueNodeIds = Array.from(new Set(nodeIds));
   const nodeSet = new Set(uniqueNodeIds);
+  const targetNodeIds = uniqueNodeIds.filter((nodeId) => targetNodeIdSet.has(nodeId));
   const edgeIds = [];
   let edgeCount = 0;
 
@@ -51,9 +54,11 @@ function createComponentDescriptor(parsed, nodeIds) {
     id: makeComponentId(uniqueNodeIds, edgeIds),
     nodeIds: uniqueNodeIds,
     nodeSet,
+    targetNodeIds,
     stats: {
       nodeCount: uniqueNodeIds.length,
       edgeCount,
+      targetCount: targetNodeIds.length,
     },
   };
 }
@@ -62,6 +67,11 @@ export function buildConnectedComponents(parsed) {
   if (!parsed) return [];
 
   const adjacency = new Map(parsed.nodes.map((node) => [node.id, new Set()]));
+  const targetNodeIdSet = new Set(
+    parsed.nodes
+      .filter((node) => isTargetNode(node.attrs, node.id))
+      .map((node) => node.id),
+  );
   for (const edge of parsed.edges) {
     if (!adjacency.has(edge.from) || !adjacency.has(edge.to)) continue;
     adjacency.get(edge.from).add(edge.to);
@@ -89,7 +99,7 @@ export function buildConnectedComponents(parsed) {
       }
     }
 
-    components.push(createComponentDescriptor(parsed, nodeIds));
+    components.push(createComponentDescriptor(parsed, nodeIds, targetNodeIdSet));
   }
 
   return components.sort((a, b) => {
@@ -105,12 +115,13 @@ export function buildConnectedComponents(parsed) {
 
 function withDisplayLabels(component, index) {
   const ordinal = index + 1;
-  const shortLabel = `${ordinal} · ${component.stats.nodeCount}点`;
+  const shortLabel =
+    `${ordinal} · ${component.stats.nodeCount} 节点 · target ${component.stats.targetCount}`;
   return {
     ...component,
     ordinal,
     label: shortLabel,
-    optionLabel: `${shortLabel} / ${component.stats.edgeCount}边`,
+    optionLabel: `${shortLabel} / ${component.stats.edgeCount} 边`,
   };
 }
 
@@ -131,12 +142,24 @@ export function buildDisplayComponentState(parsed, options = {}) {
   const displayComponents = eligibleComponents
     .filter((component) => component.stats.nodeCount >= minComponentSize)
     .map(withDisplayLabels);
+  const singleTargetNodeIdSet = new Set(
+    allComponents
+      .filter(
+        (component) =>
+          component.stats.nodeCount === 1 && component.stats.targetCount === 1,
+      )
+      .flatMap((component) => component.targetNodeIds),
+  );
+  const omittedSingleTargetIds = parsed.nodes
+    .map((node) => node.id)
+    .filter((nodeId) => singleTargetNodeIdSet.has(nodeId));
 
   return {
     allComponents,
     eligibleComponents,
     displayComponents,
     isolatedCount,
+    omittedSingleTargetIds,
     minComponentSize,
     minComponentSizeMax,
   };

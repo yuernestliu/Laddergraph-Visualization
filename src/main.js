@@ -6,6 +6,7 @@ import {
   NODE_SIZE_MODE_OPTIONS,
   applyVisibleSubgraphFilters,
   buildNodeLayerMap,
+  cleanId,
   parseDot,
   sanitizeParsedGraph,
   serializeGraphToDot,
@@ -60,6 +61,12 @@ const applyLayoutBtn = document.getElementById("applyLayoutBtn");
 const graphTabsEl = document.getElementById("graphTabs");
 const graphComponentSelect = document.getElementById("graphComponentSelect");
 const graphTabsInfo = document.getElementById("graphTabsInfo");
+const omittedSingleTargetsSummary = document.getElementById("omittedSingleTargetsSummary");
+const omittedSingleTargetCount = document.getElementById("omittedSingleTargetCount");
+const omittedSingleTargetIds = document.getElementById("omittedSingleTargetIds");
+const nodeSearchForm = document.getElementById("nodeSearchForm");
+const nodeSearchInput = document.getElementById("nodeSearchInput");
+const nodeSearchFeedback = document.getElementById("nodeSearchFeedback");
 const zoomInBtn = document.getElementById("zoomInBtn");
 const zoomOutBtn = document.getElementById("zoomOutBtn");
 const fitViewBtn = document.getElementById("fitViewBtn");
@@ -169,9 +176,140 @@ let currentNodeDetailIndex = null;
 let currentNodeDetailSource = "";
 let currentNodeDetailStatus = "点击图中的节点查看节点信息详情。";
 let selectedNodeId = null;
+let nodeSearchRequestToken = 0;
 
 function setStatus(message, isError = false) {
   setStatusUi(statusEl, message, isError);
+}
+
+function setNodeSearchFeedback(message, state = "") {
+  if (!nodeSearchFeedback) return;
+  nodeSearchFeedback.textContent = message;
+  nodeSearchFeedback.dataset.state = state;
+}
+
+function resetNodeSearch({ clearInput = true } = {}) {
+  nodeSearchRequestToken += 1;
+  if (clearInput && nodeSearchInput) nodeSearchInput.value = "";
+  setNodeSearchFeedback("");
+}
+
+function getGraphTabContainingNode(nodeId) {
+  return currentGraphTabs.find((tab) => tab.nodeSet.has(nodeId)) || null;
+}
+
+function revealNodeForSearch(nodeId) {
+  const revealAllLayers = currentLayerDepth > 0;
+  const lowerComponentThreshold = minComponentSize > DEFAULT_MIN_COMPONENT_SIZE;
+  if (!revealAllLayers && !lowerComponentThreshold) {
+    return { targetTab: null, adjustmentMessage: "" };
+  }
+
+  layerDepthIsAuto = false;
+  if (revealAllLayers) {
+    currentLayerDepth = 0;
+  }
+  if (lowerComponentThreshold) {
+    minComponentSize = DEFAULT_MIN_COMPONENT_SIZE;
+    refreshLayerState();
+  }
+
+  rebuildDisplayComponents({ preserveActive: true });
+  updateMinComponentSizeInfo();
+  updateLayerDepthControls();
+
+  const adjustments = [];
+  if (revealAllLayers) adjustments.push("全部层");
+  if (lowerComponentThreshold) adjustments.push(`n=${DEFAULT_MIN_COMPONENT_SIZE}`);
+  return {
+    targetTab: getGraphTabContainingNode(nodeId),
+    adjustmentMessage: `定位时已切换为${adjustments.join("、")}。`,
+  };
+}
+
+function getUnavailableNodeSearchMessage(nodeId) {
+  const existsInCurrentLayer = currentDisplayGraph?.nodes.some((node) => node.id === nodeId);
+  if (!existsInCurrentLayer) {
+    return `ID ${nodeId} 存在，但当前层级未显示；可先点“全部层”再定位。`;
+  }
+
+  if (currentDisplayComponentState?.omittedSingleTargetIds?.includes(nodeId)) {
+    return `ID ${nodeId} 是未进入标签页的单 target，当前视图不会渲染孤立点。`;
+  }
+
+  const filteredComponent = currentDisplayComponentState?.eligibleComponents?.find(
+    (component) => component.nodeSet.has(nodeId),
+  );
+  if (filteredComponent) {
+    return (
+      `ID ${nodeId} 所在网络有 ${filteredComponent.stats.nodeCount} 个节点，` +
+      `被当前 n=${minComponentSize} 过滤；请调低 n 后再定位。`
+    );
+  }
+
+  return `ID ${nodeId} 存在，但当前没有包含它的可显示标签页。`;
+}
+
+async function locateNodeById(rawNodeId) {
+  const requestToken = ++nodeSearchRequestToken;
+  const nodeId = cleanId(rawNodeId);
+
+  if (!nodeId) {
+    setNodeSearchFeedback("请输入完整的节点 ID。", "error");
+    nodeSearchInput?.focus();
+    return;
+  }
+
+  if (!sourceParsedGraph) {
+    setNodeSearchFeedback("请先导入并渲染一个图。", "error");
+    return;
+  }
+
+  const sourceNodeExists = sourceParsedGraph.nodes.some((node) => node.id === nodeId);
+  if (!sourceNodeExists) {
+    setNodeSearchFeedback(`没有找到 ID ${nodeId}。`, "error");
+    return;
+  }
+
+  captureCurrentTabViewState();
+  let targetTab = getGraphTabContainingNode(nodeId);
+  let adjustmentMessage = "";
+  if (!targetTab) {
+    const revealed = revealNodeForSearch(nodeId);
+    targetTab = revealed.targetTab;
+    adjustmentMessage = revealed.adjustmentMessage;
+  }
+  if (!targetTab) {
+    setNodeSearchFeedback(
+      `${adjustmentMessage}${getUnavailableNodeSearchMessage(nodeId)}`,
+      "warning",
+    );
+    return;
+  }
+
+  if (nodeSearchInput) nodeSearchInput.value = nodeId;
+  activeGraphTabId = targetTab.id;
+  const renderSucceeded = await renderActiveGraph(`正在定位 ID ${nodeId}`);
+  if (requestToken !== nodeSearchRequestToken) return;
+  if (!renderSucceeded) {
+    setNodeSearchFeedback(`无法定位 ID ${nodeId}：图形渲染未完成。`, "error");
+    return;
+  }
+
+  if (!renderer.hasNode(nodeId)) {
+    setNodeSearchFeedback(
+      `ID ${nodeId} 位于标签页“${targetTab.label}”，但当前精修结果没有显示它。`,
+      "warning",
+    );
+    return;
+  }
+
+  renderer.applySelectionHighlight(nodeId);
+  captureCurrentTabViewState();
+  setNodeSearchFeedback(
+    `${adjustmentMessage}已在标签页“${targetTab.label}”标出 ID ${nodeId}。`,
+    "success",
+  );
 }
 
 function getRequestedLayoutMode() {
@@ -220,6 +358,7 @@ function buildRenderKey(renderedDepth = currentRenderedLayerDepth) {
 }
 
 function clearGraph({ preserveNodeDetails = false } = {}) {
+  resetNodeSearch();
   sourceParsedGraph = null;
   currentGraphStats = null;
   currentDisplayComponentState = null;
@@ -505,6 +644,7 @@ function getMinComponentSizeInputValue() {
 function applyMinComponentSize(nextSize) {
   const previousViewKey = getCurrentViewKey();
   captureCurrentTabViewState(previousViewKey);
+  resetNodeSearch({ clearInput: false });
   minComponentSize = normalizeMinComponentSize(nextSize);
 
   if (sourceParsedGraph) {
@@ -529,6 +669,7 @@ function applyLabelFontSize(nextSize) {
   }
 
   captureCurrentTabViewState();
+  resetNodeSearch({ clearInput: false });
   labelFontSize = normalizedSize;
   updateLabelFontSizeInfo();
   if (!sourceParsedGraph) return;
@@ -542,6 +683,7 @@ function stepLabelFontSize(delta) {
 function applyLayerDepth(nextDepth, { auto = false, status = "" } = {}) {
   if (!sourceParsedGraph) return;
   captureCurrentTabViewState();
+  resetNodeSearch({ clearInput: false });
   layerDepthIsAuto = auto;
   currentLayerDepth = auto
     ? currentAutoLayerDepth
@@ -589,9 +731,16 @@ function renderGraphTabs() {
     summarizeGraph,
     getTrimmedLayerCount,
     maxInlineTabs: MAX_INLINE_COMPONENT_TABS,
+    omittedSingleTargetIds: currentDisplayComponentState?.omittedSingleTargetIds || [],
+    omittedSingleTargetSummaryEls: {
+      summaryEl: omittedSingleTargetsSummary,
+      countEl: omittedSingleTargetCount,
+      idsEl: omittedSingleTargetIds,
+    },
     onSelectTab: (tab) => {
       if (tab.id === activeGraphTabId) return;
       captureCurrentTabViewState();
+      resetNodeSearch({ clearInput: false });
       activeGraphTabId = tab.id;
       renderActiveGraph(`已切换到 ${tab.label}`);
     },
@@ -612,6 +761,7 @@ function primeRenderableComponent(activeTab) {
 function handleRefineProjectionChange(reason = "") {
   if (!sourceParsedGraph) return;
   captureCurrentTabViewState();
+  resetNodeSearch({ clearInput: false });
   renderActiveGraph(reason ? `已应用精修：${reason}` : "已应用精修");
 }
 
@@ -632,7 +782,7 @@ async function renderActiveGraph(statusPrefix = "") {
       sourceParsedGraph ? "当前过滤后没有可显示的网络。" : "当前没有可渲染的子图。",
       false,
     );
-    return;
+    return false;
   }
 
   primeRenderableComponent(activeTab);
@@ -665,7 +815,7 @@ async function renderActiveGraph(statusPrefix = "") {
 
   try {
     const svgMarkup = cachedRender?.svgMarkup || (await requestSvgRender(dot, engine));
-    if (renderToken !== currentRenderToken) return;
+    if (renderToken !== currentRenderToken) return false;
 
     if (!cachedRender) {
       tabStateStore.setRenderCache(activeTab.id, currentRenderKey, { svgMarkup });
@@ -679,7 +829,7 @@ async function renderActiveGraph(statusPrefix = "") {
     });
 
     await new Promise((resolve) => window.requestAnimationFrame(resolve));
-    if (!isCurrentRender(renderToken, currentRenderToken)) return;
+    if (!isCurrentRender(renderToken, currentRenderToken)) return false;
 
     const savedState = tabStateStore.getViewState(activeTab.id, currentViewKey);
     const restoredViewport = renderer.restoreViewState(savedState, currentViewKey);
@@ -693,9 +843,10 @@ async function renderActiveGraph(statusPrefix = "") {
 
     tabStateStore.setViewState(activeTab.id, currentViewKey, renderer.getViewState(currentViewKey));
     setStatus("");
+    return true;
   } catch (error) {
-    if (error?.name === "AbortError") return;
-    if (!isCurrentRender(renderToken, currentRenderToken)) return;
+    if (error?.name === "AbortError") return false;
+    if (!isCurrentRender(renderToken, currentRenderToken)) return false;
     renderer.clear();
     currentSubgraph = null;
     updateLayerDepthControls();
@@ -705,6 +856,7 @@ async function renderActiveGraph(statusPrefix = "") {
       true,
     );
     console.error(error);
+    return false;
   } finally {
     if (renderToken === currentRenderToken) {
       renderer.setLoading(false);
@@ -713,6 +865,7 @@ async function renderActiveGraph(statusPrefix = "") {
 }
 
 function renderGraph(statusPrefix = "") {
+  resetNodeSearch();
   try {
     sourceParsedGraph = sanitizeParsedGraph(parseDot(currentDotText));
     currentGraphStats = summarizeGraph(sourceParsedGraph);
@@ -761,6 +914,7 @@ function renderGraph(statusPrefix = "") {
 function applyLayout() {
   if (!sourceParsedGraph) return;
   captureCurrentTabViewState();
+  resetNodeSearch({ clearInput: false });
   renderActiveGraph(`已应用布局：${layoutSelect.options[layoutSelect.selectedIndex].text}`);
 }
 
@@ -866,6 +1020,18 @@ if (chooseNodeDetailFileBtn && nodeDetailFileInput) {
   });
 }
 
+if (nodeSearchForm && nodeSearchInput) {
+  nodeSearchForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    locateNodeById(nodeSearchInput.value);
+  });
+
+  nodeSearchInput.addEventListener("input", () => {
+    nodeSearchRequestToken += 1;
+    setNodeSearchFeedback("");
+  });
+}
+
 renderBtn.addEventListener("click", () => {
   if (!currentDotText.trim()) {
     setStatus("请先导入一个 .gv 文件。", true);
@@ -885,6 +1051,7 @@ if (nodeTextModeSelect) {
     if (!NODE_TEXT_MODES.includes(nextMode)) return;
     if (nodeTextMode === nextMode) return;
     captureCurrentTabViewState();
+    resetNodeSearch({ clearInput: false });
     nodeTextMode = nextMode;
     renderActiveGraph("已切换节点文本");
   });
@@ -915,6 +1082,7 @@ nodeSizeModeSelect.addEventListener("change", () => {
   nodeSizeMode = nodeSizeModeSelect.value;
   if (!sourceParsedGraph) return;
   captureCurrentTabViewState();
+  resetNodeSearch({ clearInput: false });
   renderActiveGraph("已切换节点尺寸");
 });
 
