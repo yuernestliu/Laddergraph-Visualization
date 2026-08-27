@@ -33,9 +33,10 @@ describe("display component target statistics", () => {
     const state = buildDisplayComponentState(parsed, { minComponentSize: 2 });
 
     expect(state.displayComponents.map((component) => component.stats.targetCount)).toEqual([2, 1]);
+    expect(state.displayComponents.map((component) => component.stats.ladderUnitCount)).toEqual([1, 1]);
     expect(state.displayComponents.map((component) => component.label)).toEqual([
-      "1 · 3 节点 · target 2",
-      "2 · 2 节点 · target 1",
+      "(1)2叶.1梯元",
+      "(2)1叶.1梯元",
     ]);
     expect(state.isolatedCount).toBe(2);
     expect(state.omittedSingleTargetIds).toEqual(["-3"]);
@@ -51,7 +52,7 @@ describe("display component target statistics", () => {
 
     const depthSevenState = buildDisplayComponentState(
       applyVisibleSubgraphFilters(parsed, 7, layerMeta, 0),
-      { minComponentSize: 2 },
+      { minComponentSize: 2, sourceParsedGraph: parsed },
     );
     expect(
       depthSevenState.displayComponents.map((component) => component.stats.targetCount),
@@ -67,18 +68,36 @@ describe("display component target statistics", () => {
 
     const depthEightState = buildDisplayComponentState(
       applyVisibleSubgraphFilters(parsed, 8, layerMeta, 0),
-      { minComponentSize: 2 },
+      { minComponentSize: 2, sourceParsedGraph: parsed },
     );
     expect(depthEightState.omittedSingleTargetIds).toEqual([
       "-1",
       "-2",
+      "-4",
+      "-6",
+      "-8",
       "-11",
+      "-15",
+      "-16",
       "-17",
+      "-18",
       "-19",
       "-20",
       "-22",
       "-23",
       "-24",
     ]);
+
+    const depthNineState = buildDisplayComponentState(
+      applyVisibleSubgraphFilters(parsed, 9, layerMeta, 0),
+      { minComponentSize: 2, sourceParsedGraph: parsed },
+    );
+    const depthNineTabTargetCount = depthNineState.displayComponents.reduce(
+      (sum, component) => sum + component.stats.targetCount,
+      0,
+    );
+    expect(depthNineTabTargetCount).toBe(5);
+    expect(depthNineState.omittedSingleTargetIds).toHaveLength(19);
+    expect(depthNineTabTargetCount + depthNineState.omittedSingleTargetIds.length).toBe(24);
   });
 });

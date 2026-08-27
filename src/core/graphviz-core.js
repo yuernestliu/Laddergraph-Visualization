@@ -133,20 +133,8 @@ export function isExternalLabelEllipseNode(attrs = {}, nodeId = "") {
   );
 }
 
-function isHiddenNode(node) {
-  const attrs = node.attrs || {};
-  return (
-    String(node.id) === "-1" &&
-    normalizeDisplayLabel(attrs.label).trim() === "." &&
-    isWhiteColor(attrs.color) &&
-    isWhiteColor(attrs.fillcolor) &&
-    String(attrs.rank || "").trim().toLowerCase() === "max"
-  );
-}
-
 export function sanitizeParsedGraph(parsed) {
-  const visibleNodes = parsed.nodes.filter((node) => !isHiddenNode(node));
-  const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
+  const visibleNodeIds = new Set(parsed.nodes.map((node) => node.id));
   const visibleEdges = parsed.edges.filter((edge) => {
     if (!visibleNodeIds.has(edge.from) || !visibleNodeIds.has(edge.to)) return false;
     if (isTransparentColor(edge.attrs?.color)) return false;
@@ -155,7 +143,7 @@ export function sanitizeParsedGraph(parsed) {
 
   return {
     graphAttrs: parsed.graphAttrs,
-    nodes: visibleNodes,
+    nodes: parsed.nodes,
     edges: visibleEdges,
   };
 }

@@ -1,6 +1,5 @@
 digraph "00_20.gv" {
 	rankdir=BT size="8,8"
-	-1 [label="." color=white fillcolor=white rank=max style=filled]
 	edge [arrowsize=0.5]
 	0 [label="0.1
 0[1405]." color=grey fillcolor=white shape=ellipse style=filled]
@@ -242,26 +241,6 @@ digraph "00_20.gv" {
 	217 [label="217[14]." color=grey height=0.7762316445777043 shape=ellipse style=filled width=1.5524632891554087]
 	218 [label="218[14]." color=grey height=0.7762316445777043 shape=ellipse style=filled width=1.5524632891554087]
 	219 [label="219[14]." color=grey height=0.7762316445777043 shape=ellipse style=filled width=1.5524632891554087]
-	0 -> -1 [color="#ffffffff"]
-	1 -> -1 [color="#ffffffff"]
-	2 -> -1 [color="#ffffffff"]
-	3 -> -1 [color="#ffffffff"]
-	4 -> -1 [color="#ffffffff"]
-	5 -> -1 [color="#ffffffff"]
-	6 -> -1 [color="#ffffffff"]
-	7 -> -1 [color="#ffffffff"]
-	8 -> -1 [color="#ffffffff"]
-	9 -> -1 [color="#ffffffff"]
-	10 -> -1 [color="#ffffffff"]
-	11 -> -1 [color="#ffffffff"]
-	12 -> -1 [color="#ffffffff"]
-	13 -> -1 [color="#ffffffff"]
-	14 -> -1 [color="#ffffffff"]
-	15 -> -1 [color="#ffffffff"]
-	16 -> -1 [color="#ffffffff"]
-	17 -> -1 [color="#ffffffff"]
-	18 -> -1 [color="#ffffffff"]
-	19 -> -1 [color="#ffffffff"]
 	20 -> 17
 	20 -> 3
 	21 -> 19

@@ -36,12 +36,12 @@
             </div>
 
             <div class="section text-section">
-              <h2>文本</h2>
+              <h2>显示Label</h2>
               <div class="text-controls">
-                <select id="nodeTextModeSelect" aria-label="文本显示">
+                <select id="nodeTextModeSelect" aria-label="Label 显示方式">
                   <option value="label" selected>都显示</option>
                   <option value="id">只显示 ID</option>
-                  <option value="none">不显示 Label</option>
+                  <option value="none">都不显示</option>
                 </select>
                 <div class="label-font-size-control" aria-label="Label 字号">
                   <button id="labelFontSizeDownBtn" class="stepper-btn" type="button" aria-label="减小 Label 字号">-</button>
@@ -107,34 +107,24 @@
             <select id="graphComponentSelect" class="component-select" hidden aria-label="选择网络"></select>
           </div>
           <form id="nodeSearchForm" class="node-search" role="search" novalidate>
-            <label class="sr-only" for="nodeSearchInput">搜索节点 ID</label>
+            <label class="sr-only" for="nodeSearchInput">查找节点 ID</label>
             <input
               id="nodeSearchInput"
               type="search"
+              inputmode="numeric"
               autocomplete="off"
               spellcheck="false"
-              placeholder="搜索节点 ID，例如 -1"
+              placeholder="-1"
               aria-describedby="nodeSearchFeedback"
             />
-            <button id="nodeSearchBtn" class="primary" type="submit">定位</button>
+            <button id="nodeSearchBtn" class="primary" type="submit">查找ID</button>
             <span id="nodeSearchFeedback" class="node-search-feedback" role="status" aria-live="polite"></span>
           </form>
+          <p id="omittedSingleTargetsSummary" class="omitted-target-summary" hidden>
+            <strong id="omittedSingleTargetsText"></strong>
+          </p>
         </div>
-        <div class="graph-meta">
-          <p id="graphTabsInfo" class="hint">当前显示：全图</p>
-          <p id="status" hidden></p>
-        </div>
-        <div id="omittedSingleTargetsSummary" class="omitted-target-summary" hidden>
-          <div class="omitted-target-heading">
-            <span>未进入标签页的单 target</span>
-            <strong id="omittedSingleTargetCount">0</strong>
-          </div>
-          <div
-            id="omittedSingleTargetIds"
-            class="omitted-target-ids"
-            aria-label="未进入标签页的单 target ID"
-          ></div>
-        </div>
+        <p id="status" hidden></p>
         <div class="graph-workspace">
           <div id="networkShell" class="network-shell">
             <div class="overlay-controls">
@@ -145,6 +135,7 @@
               </div>
               <div class="layer-controls">
                 <div class="row">
+                  <span id="graphTabsInfo" class="layer-count">层级 0/0</span>
                   <button id="layerDepthUpBtn" class="compact-btn" type="button">深1层</button>
                   <button id="layerDepthDownBtn" class="compact-btn" type="button">浅1层</button>
                   <button id="layerDepthAutoBtn" class="compact-btn" type="button">合适层级</button>

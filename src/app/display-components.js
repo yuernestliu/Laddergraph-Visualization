@@ -59,6 +59,7 @@ function createComponentDescriptor(parsed, nodeIds, targetNodeIdSet) {
       nodeCount: uniqueNodeIds.length,
       edgeCount,
       targetCount: targetNodeIds.length,
+      ladderUnitCount: uniqueNodeIds.length - targetNodeIds.length,
     },
   };
 }
@@ -116,12 +117,12 @@ export function buildConnectedComponents(parsed) {
 function withDisplayLabels(component, index) {
   const ordinal = index + 1;
   const shortLabel =
-    `${ordinal} · ${component.stats.nodeCount} 节点 · target ${component.stats.targetCount}`;
+    `(${ordinal})${component.stats.targetCount}叶.${component.stats.ladderUnitCount}梯元`;
   return {
     ...component,
     ordinal,
     label: shortLabel,
-    optionLabel: `${shortLabel} / ${component.stats.edgeCount} 边`,
+    optionLabel: shortLabel,
   };
 }
 
@@ -142,17 +143,14 @@ export function buildDisplayComponentState(parsed, options = {}) {
   const displayComponents = eligibleComponents
     .filter((component) => component.stats.nodeCount >= minComponentSize)
     .map(withDisplayLabels);
-  const singleTargetNodeIdSet = new Set(
-    allComponents
-      .filter(
-        (component) =>
-          component.stats.nodeCount === 1 && component.stats.targetCount === 1,
-      )
-      .flatMap((component) => component.targetNodeIds),
+  const displayedTargetNodeIdSet = new Set(
+    displayComponents.flatMap((component) => component.targetNodeIds),
   );
-  const omittedSingleTargetIds = parsed.nodes
+  const sourceGraph = options.sourceParsedGraph || parsed;
+  const omittedSingleTargetIds = sourceGraph.nodes
+    .filter((node) => isTargetNode(node.attrs, node.id))
     .map((node) => node.id)
-    .filter((nodeId) => singleTargetNodeIdSet.has(nodeId));
+    .filter((nodeId) => !displayedTargetNodeIdSet.has(nodeId));
 
   return {
     allComponents,

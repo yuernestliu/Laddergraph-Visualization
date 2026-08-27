@@ -29,7 +29,7 @@ describe("graph sanitation and target summaries", () => {
     expect(parsed.edges.filter((edge) => edge.from === "1" && edge.to === "-1")).toHaveLength(2);
   });
 
-  it("still removes the legacy white-dot -1 layout sentinel", () => {
+  it("keeps every declared node while removing invisible layout edges", () => {
     const parsed = sanitizeParsedGraph(parseDot(`
       digraph {
         -1 [label="." color=white fillcolor=white rank=max style=filled]
@@ -38,7 +38,7 @@ describe("graph sanitation and target summaries", () => {
       }
     `));
 
-    expect(parsed.nodes.map((node) => node.id)).toEqual(["a"]);
+    expect(parsed.nodes.map((node) => node.id)).toEqual(["-1", "a"]);
     expect(parsed.edges).toEqual([]);
   });
 });

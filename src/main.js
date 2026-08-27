@@ -62,8 +62,7 @@ const graphTabsEl = document.getElementById("graphTabs");
 const graphComponentSelect = document.getElementById("graphComponentSelect");
 const graphTabsInfo = document.getElementById("graphTabsInfo");
 const omittedSingleTargetsSummary = document.getElementById("omittedSingleTargetsSummary");
-const omittedSingleTargetCount = document.getElementById("omittedSingleTargetCount");
-const omittedSingleTargetIds = document.getElementById("omittedSingleTargetIds");
+const omittedSingleTargetsText = document.getElementById("omittedSingleTargetsText");
 const nodeSearchForm = document.getElementById("nodeSearchForm");
 const nodeSearchInput = document.getElementById("nodeSearchInput");
 const nodeSearchFeedback = document.getElementById("nodeSearchFeedback");
@@ -198,58 +197,6 @@ function getGraphTabContainingNode(nodeId) {
   return currentGraphTabs.find((tab) => tab.nodeSet.has(nodeId)) || null;
 }
 
-function revealNodeForSearch(nodeId) {
-  const revealAllLayers = currentLayerDepth > 0;
-  const lowerComponentThreshold = minComponentSize > DEFAULT_MIN_COMPONENT_SIZE;
-  if (!revealAllLayers && !lowerComponentThreshold) {
-    return { targetTab: null, adjustmentMessage: "" };
-  }
-
-  layerDepthIsAuto = false;
-  if (revealAllLayers) {
-    currentLayerDepth = 0;
-  }
-  if (lowerComponentThreshold) {
-    minComponentSize = DEFAULT_MIN_COMPONENT_SIZE;
-    refreshLayerState();
-  }
-
-  rebuildDisplayComponents({ preserveActive: true });
-  updateMinComponentSizeInfo();
-  updateLayerDepthControls();
-
-  const adjustments = [];
-  if (revealAllLayers) adjustments.push("全部层");
-  if (lowerComponentThreshold) adjustments.push(`n=${DEFAULT_MIN_COMPONENT_SIZE}`);
-  return {
-    targetTab: getGraphTabContainingNode(nodeId),
-    adjustmentMessage: `定位时已切换为${adjustments.join("、")}。`,
-  };
-}
-
-function getUnavailableNodeSearchMessage(nodeId) {
-  const existsInCurrentLayer = currentDisplayGraph?.nodes.some((node) => node.id === nodeId);
-  if (!existsInCurrentLayer) {
-    return `ID ${nodeId} 存在，但当前层级未显示；可先点“全部层”再定位。`;
-  }
-
-  if (currentDisplayComponentState?.omittedSingleTargetIds?.includes(nodeId)) {
-    return `ID ${nodeId} 是未进入标签页的单 target，当前视图不会渲染孤立点。`;
-  }
-
-  const filteredComponent = currentDisplayComponentState?.eligibleComponents?.find(
-    (component) => component.nodeSet.has(nodeId),
-  );
-  if (filteredComponent) {
-    return (
-      `ID ${nodeId} 所在网络有 ${filteredComponent.stats.nodeCount} 个节点，` +
-      `被当前 n=${minComponentSize} 过滤；请调低 n 后再定位。`
-    );
-  }
-
-  return `ID ${nodeId} 存在，但当前没有包含它的可显示标签页。`;
-}
-
 async function locateNodeById(rawNodeId) {
   const requestToken = ++nodeSearchRequestToken;
   const nodeId = cleanId(rawNodeId);
@@ -267,26 +214,17 @@ async function locateNodeById(rawNodeId) {
 
   const sourceNodeExists = sourceParsedGraph.nodes.some((node) => node.id === nodeId);
   if (!sourceNodeExists) {
-    setNodeSearchFeedback(`没有找到 ID ${nodeId}。`, "error");
+    setNodeSearchFeedback("不存在此ID", "error");
+    return;
+  }
+
+  const targetTab = getGraphTabContainingNode(nodeId);
+  if (!targetTab) {
+    setNodeSearchFeedback("未进入任一标签页", "warning");
     return;
   }
 
   captureCurrentTabViewState();
-  let targetTab = getGraphTabContainingNode(nodeId);
-  let adjustmentMessage = "";
-  if (!targetTab) {
-    const revealed = revealNodeForSearch(nodeId);
-    targetTab = revealed.targetTab;
-    adjustmentMessage = revealed.adjustmentMessage;
-  }
-  if (!targetTab) {
-    setNodeSearchFeedback(
-      `${adjustmentMessage}${getUnavailableNodeSearchMessage(nodeId)}`,
-      "warning",
-    );
-    return;
-  }
-
   if (nodeSearchInput) nodeSearchInput.value = nodeId;
   activeGraphTabId = targetTab.id;
   const renderSucceeded = await renderActiveGraph(`正在定位 ID ${nodeId}`);
@@ -307,7 +245,7 @@ async function locateNodeById(rawNodeId) {
   renderer.applySelectionHighlight(nodeId);
   captureCurrentTabViewState();
   setNodeSearchFeedback(
-    `${adjustmentMessage}已在标签页“${targetTab.label}”标出 ID ${nodeId}。`,
+    `已在标签页“${targetTab.label}”标出 ID ${nodeId}。`,
     "success",
   );
 }
@@ -626,7 +564,10 @@ function rebuildDisplayComponents({ preserveActive = true } = {}) {
     currentLayerMeta,
     0,
   );
-  currentDisplayComponentState = buildDisplayComponentState(currentDisplayGraph, { minComponentSize });
+  currentDisplayComponentState = buildDisplayComponentState(currentDisplayGraph, {
+    minComponentSize,
+    sourceParsedGraph,
+  });
   minComponentSize = currentDisplayComponentState.minComponentSize;
   minComponentSizeMax = currentDisplayComponentState.minComponentSizeMax;
   currentGraphTabs = currentDisplayComponentState.displayComponents;
@@ -723,19 +664,15 @@ function renderGraphTabs() {
     graphTabsInfo,
     currentGraphTabs,
     activeGraphTabId,
-    currentTabBaseSubgraph,
-    currentSubgraph,
     currentLayerMaxDepth,
     currentLayerDepth,
     sourceParsedGraph,
-    summarizeGraph,
     getTrimmedLayerCount,
     maxInlineTabs: MAX_INLINE_COMPONENT_TABS,
     omittedSingleTargetIds: currentDisplayComponentState?.omittedSingleTargetIds || [],
     omittedSingleTargetSummaryEls: {
       summaryEl: omittedSingleTargetsSummary,
-      countEl: omittedSingleTargetCount,
-      idsEl: omittedSingleTargetIds,
+      textEl: omittedSingleTargetsText,
     },
     onSelectTab: (tab) => {
       if (tab.id === activeGraphTabId) return;

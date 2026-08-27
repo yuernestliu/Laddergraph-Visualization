@@ -103,28 +103,23 @@ export function updateLayerDepthControls(controlEls, options) {
 }
 
 export function renderOmittedSingleTargets(summaryEls, nodeIds = [], hasGraph = true) {
-  const { summaryEl, countEl, idsEl } = summaryEls;
-  if (!summaryEl || !countEl || !idsEl) return;
+  const { summaryEl, textEl } = summaryEls;
+  if (!summaryEl || !textEl) return;
 
   const normalizedIds = Array.from(nodeIds, String);
-  summaryEl.hidden = !hasGraph;
-  countEl.textContent = String(normalizedIds.length);
-  idsEl.replaceChildren();
-
-  if (normalizedIds.length === 0) {
-    const emptyState = document.createElement("span");
-    emptyState.className = "omitted-target-empty";
-    emptyState.textContent = "无";
-    idsEl.append(emptyState);
+  summaryEl.hidden = !hasGraph || normalizedIds.length === 0;
+  textEl.hidden = !hasGraph || normalizedIds.length === 0;
+  if (!hasGraph || normalizedIds.length === 0) {
+    textEl.textContent = "";
     return;
   }
 
-  for (const nodeId of normalizedIds) {
-    const chip = document.createElement("code");
-    chip.className = "omitted-target-id";
-    chip.textContent = nodeId;
-    idsEl.append(chip);
-  }
+  const visibleIds = normalizedIds.slice(0, 10);
+  const idText = visibleIds.length ? visibleIds.join(", ") : "无";
+  const suffix = normalizedIds.length > visibleIds.length ? ", ..." : "";
+  textEl.textContent =
+    `未进入标签页的单Target数量为 ${normalizedIds.length}，` +
+    `其ID为：${idText}${suffix}`;
 }
 
 export function renderGraphTabs(options) {
@@ -134,12 +129,9 @@ export function renderGraphTabs(options) {
     graphTabsInfo,
     currentGraphTabs,
     activeGraphTabId,
-    currentTabBaseSubgraph,
-    currentSubgraph,
     currentLayerMaxDepth,
     currentLayerDepth,
     sourceParsedGraph,
-    summarizeGraph,
     getTrimmedLayerCount,
     maxInlineTabs,
     omittedSingleTargetIds,
@@ -159,35 +151,22 @@ export function renderGraphTabs(options) {
     componentSelectEl.onchange = null;
   }
 
+  const totalLayers = sourceParsedGraph ? Math.max(1, currentLayerMaxDepth + 1) : 0;
+  const visibleLayers = totalLayers
+    ? Math.max(
+        1,
+        totalLayers - getTrimmedLayerCount(currentLayerDepth, currentLayerMaxDepth),
+      )
+    : 0;
+  graphTabsInfo.textContent = `层级 ${visibleLayers}/${totalLayers}`;
+
   if (!currentGraphTabs.length) {
     tabsEl.hidden = true;
-    graphTabsInfo.textContent = sourceParsedGraph
-      ? "当前过滤后没有可显示的网络。"
-      : "当前显示：未加载图";
     return;
   }
 
   const activeTab = currentGraphTabs.find((tab) => tab.id === activeGraphTabId) || currentGraphTabs[0];
   if (!activeTab) {
-    tabsEl.hidden = true;
-    graphTabsInfo.textContent = "当前显示：未加载图";
-    return;
-  }
-
-  const totalStats = currentTabBaseSubgraph ? summarizeGraph(currentTabBaseSubgraph) : activeTab.stats;
-  const visibleStats = currentSubgraph ? summarizeGraph(currentSubgraph) : totalStats;
-  const totalLayers = Math.max(1, currentLayerMaxDepth + 1);
-  const visibleLayers = Math.max(
-    1,
-    totalLayers - getTrimmedLayerCount(currentLayerDepth, currentLayerMaxDepth),
-  );
-
-  graphTabsInfo.textContent =
-    `层级 ${visibleLayers}/${totalLayers}。` +
-    `共 ${totalStats.nodeCount} 节点 / target ${totalStats.targetCount || 0} / ${totalStats.edgeCount} 边；` +
-    `目前显示：${visibleStats.nodeCount} 节点 / target ${visibleStats.targetCount || 0} / ${visibleStats.edgeCount} 边。`;
-
-  if (currentGraphTabs.length === 1) {
     tabsEl.hidden = true;
     return;
   }
