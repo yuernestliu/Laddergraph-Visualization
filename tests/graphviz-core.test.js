@@ -12,7 +12,7 @@ import {
 describe("graph sanitation and target summaries", () => {
   it("preserves the legitimate -1 target in the 神兽 example", () => {
     const dotText = readFileSync(
-      new URL("../src/assets/example_graphs/神兽lg.gv", import.meta.url),
+      new URL("../src/assets/example_graphs/神兽lg-2.gv", import.meta.url),
       "utf8",
     );
     const parsed = sanitizeParsedGraph(parseDot(dotText));
@@ -21,8 +21,8 @@ describe("graph sanitation and target summaries", () => {
       .map((node) => node.id);
 
     expect(summarizeGraph(parsed)).toEqual({
-      nodeCount: 159,
-      edgeCount: 520,
+      nodeCount: 166,
+      edgeCount: 529,
       targetCount: 24,
     });
     expect(targetIds).toContain("-1");

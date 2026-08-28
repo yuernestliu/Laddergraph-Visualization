@@ -44,7 +44,7 @@ describe("display component target statistics", () => {
 
   it("matches the 神兽 shallow-layer tab and omitted-target breakdown", () => {
     const dotText = readFileSync(
-      new URL("../src/assets/example_graphs/神兽lg.gv", import.meta.url),
+      new URL("../src/assets/example_graphs/神兽lg-2.gv", import.meta.url),
       "utf8",
     );
     const parsed = sanitizeParsedGraph(parseDot(dotText));
@@ -56,14 +56,15 @@ describe("display component target statistics", () => {
     );
     expect(
       depthSevenState.displayComponents.map((component) => component.stats.targetCount),
-    ).toEqual([8, 3, 3, 2, 1, 1]);
+    ).toEqual([6, 4, 2, 2, 1, 1, 1]);
     expect(depthSevenState.omittedSingleTargetIds).toEqual([
       "-4",
-      "-6",
       "-8",
-      "-15",
-      "-16",
+      "-17",
       "-18",
+      "-20",
+      "-21",
+      "-23",
     ]);
 
     const depthEightState = buildDisplayComponentState(
@@ -76,16 +77,13 @@ describe("display component target statistics", () => {
       "-4",
       "-6",
       "-8",
-      "-11",
-      "-15",
       "-16",
       "-17",
       "-18",
-      "-19",
       "-20",
+      "-21",
       "-22",
       "-23",
-      "-24",
     ]);
 
     const depthNineState = buildDisplayComponentState(
@@ -96,8 +94,8 @@ describe("display component target statistics", () => {
       (sum, component) => sum + component.stats.targetCount,
       0,
     );
-    expect(depthNineTabTargetCount).toBe(5);
-    expect(depthNineState.omittedSingleTargetIds).toHaveLength(19);
+    expect(depthNineTabTargetCount).toBe(1);
+    expect(depthNineState.omittedSingleTargetIds).toHaveLength(23);
     expect(depthNineTabTargetCount + depthNineState.omittedSingleTargetIds.length).toBe(24);
   });
 });

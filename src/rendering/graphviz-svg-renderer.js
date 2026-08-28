@@ -7,6 +7,10 @@ import {
   readableTextColor,
   splitDisplayLabel,
 } from "../core/graphviz-core.js";
+import {
+  GRAPH_INPUT_KINDS,
+  formatNodeIdForDisplay,
+} from "../core/graph-input-profile.js";
 import { sanitizeGraphvizSvgMarkup } from "../app/svg-sanitizer.js";
 
 const HIGHLIGHT_RED = "#e60023";
@@ -23,6 +27,7 @@ export class GraphvizSvgRenderer {
     this.currentSvg = null;
     this.currentViewport = null;
     this.currentSubgraph = null;
+    this.graphInputKind = GRAPH_INPUT_KINDS.GENERIC;
     this.nodeTextMode = "label";
     this.labelFontSize = 10;
     this.activeSelectionNodeId = null;
@@ -96,7 +101,7 @@ export class GraphvizSvgRenderer {
     return restoredViewport;
   }
 
-  render({ svgMarkup, parsed, nodeTextMode, labelFontSize }) {
+  render({ svgMarkup, parsed, graphInputKind, nodeTextMode, labelFontSize }) {
     this.clear();
 
     const svg = this.parseSvgMarkup(svgMarkup);
@@ -123,6 +128,7 @@ export class GraphvizSvgRenderer {
     this.container.replaceChildren(svg);
     this.currentSvg = svg;
     this.currentSubgraph = parsed;
+    this.graphInputKind = graphInputKind || GRAPH_INPUT_KINDS.GENERIC;
     this.nodeTextMode = nodeTextMode;
     this.labelFontSize = Math.max(6, Math.min(24, Number(labelFontSize || 10)));
 
@@ -542,7 +548,7 @@ export class GraphvizSvgRenderer {
       const centerY = box.y + box.height / 2;
       const parts =
         this.nodeTextMode === "id"
-          ? { top: "", inner: String(nodeId) }
+          ? { top: "", inner: formatNodeIdForDisplay(nodeMeta, this.graphInputKind) }
           : splitDisplayLabel(nodeMeta.attrs?.label || nodeId);
 
       const innerFontSize = isTarget ? this.labelFontSize + 2 : this.labelFontSize + 3;

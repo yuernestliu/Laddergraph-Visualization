@@ -1,3 +1,5 @@
+import { formatNodeIdForDisplay } from "./graph-input-profile.js";
+
 export const DEFAULT_DOT_PATH = new URL("../assets/example_graphs/G0.gv", import.meta.url).href;
 export const DEFAULT_NODE_DETAILS_PATH = new URL("../assets/example_graphs/G0.csv", import.meta.url).href;
 export const DEFAULT_DOT_DISPLAY_PATH = "example_graphs/G0.gv";
@@ -602,7 +604,7 @@ function getNodeEllipseWidth(node, sizeContext) {
 }
 
 function buildRenderableNodeAttrs(node, options, sizeContext) {
-  const { nodeTextMode } = options;
+  const { graphInputKind, nodeTextMode } = options;
   const attrs = stripLayoutAttrs(node.attrs || {});
   const dotLabel = normalizeDisplayLabel(attrs.label || node.id);
   const targetNode = isTargetNode(attrs, node.id);
@@ -662,7 +664,9 @@ function buildRenderableNodeAttrs(node, options, sizeContext) {
     return attrs;
   }
 
-  attrs.label = nodeTextMode === "id" ? String(node.id) : dotLabel;
+  attrs.label = nodeTextMode === "id"
+    ? formatNodeIdForDisplay(node, graphInputKind)
+    : dotLabel;
   attrs.fontsize = String(labelFontSize);
   return attrs;
 }
@@ -683,7 +687,7 @@ function buildRenderableEdgeAttrs(edge, nodeTextMode) {
 }
 
 export function serializeGraphToDot(parsed, options) {
-  const { layoutMode, nodeTextMode, nodeSizeMode, labelFontSize } = options;
+  const { graphInputKind, layoutMode, nodeTextMode, nodeSizeMode, labelFontSize } = options;
   const layoutSpec = getLayoutSpec(layoutMode);
   const sizeContext = buildNodeSizeContext(
     Array.isArray(options.sizeSourceNodes) && options.sizeSourceNodes.length
@@ -714,7 +718,11 @@ export function serializeGraphToDot(parsed, options) {
   for (const node of parsed.nodes) {
     lines.push(
       `  ${quoteDotId(node.id)}${serializeAttrs(
-        buildRenderableNodeAttrs(node, { nodeTextMode, labelFontSize }, sizeContext),
+        buildRenderableNodeAttrs(
+          node,
+          { graphInputKind, nodeTextMode, labelFontSize },
+          sizeContext,
+        ),
       )};`,
     );
   }

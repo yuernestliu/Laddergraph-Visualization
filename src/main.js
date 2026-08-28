@@ -12,6 +12,11 @@ import {
   serializeGraphToDot,
   summarizeGraph,
 } from "./core/graphviz-core.js";
+import {
+  GRAPH_INPUT_KINDS,
+  buildSequenceNodeDetail,
+  detectGraphInputKind,
+} from "./core/graph-input-profile.js";
 import { GraphvizRenderClient } from "./app/graphviz-render-client.js";
 import { GraphvizSvgRenderer } from "./rendering/graphviz-svg-renderer.js";
 import {
@@ -25,8 +30,13 @@ import { createEditModeController } from "./app/edit-mode/edit-controller.js";
 import { createGenePairExportController } from "./app/gene-pair-export/gene-pair-export.js";
 import { GraphTabStateStore } from "./app/graph-tab-state-store.js";
 import { clampLayerDepth, getLayerDepthLabel, getSuggestedLayerDepth, getTrimmedLayerCount } from "./app/layer-utils.js";
-import { buildBestNodeDetailIndex, getSameNameCsvCandidate } from "./app/node-info-source.js";
+import {
+  buildBestNodeDetailIndex,
+  getBundledNodeDetailCandidate,
+  getSameNameCsvCandidate,
+} from "./app/node-info-source.js";
 import { createLoadGenerationTracker } from "./app/load-generation.js";
+import { createNetworkHeightResizer } from "./app/network-height-resizer.js";
 import { createRefineModeController } from "./app/refine-mode/refine-controller.js";
 import { isCurrentRender } from "./app/render-token.js";
 import {
@@ -92,6 +102,7 @@ const nodeDetailBody = document.getElementById("nodeDetailBody");
 const genePairExportPanel = document.getElementById("genePairExportPanel");
 const networkShell = document.getElementById("networkShell");
 const networkEl = document.getElementById("network");
+const networkResizeHandle = document.getElementById("networkResizeHandle");
 
 let refineModeController = null;
 let genePairExportController = null;
@@ -106,6 +117,11 @@ const renderer = new GraphvizSvgRenderer(networkEl, {
 const tabStateStore = new GraphTabStateStore();
 const graphvizRenderClient = new GraphvizRenderClient();
 const loadGenerationTracker = createLoadGenerationTracker();
+const networkHeightResizer = createNetworkHeightResizer({
+  networkEl,
+  handleEl: networkResizeHandle,
+});
+networkHeightResizer.mount();
 export const editModeController = createEditModeController({
   rootEl: networkShell,
   toggleButton: editModeBtn,
@@ -148,6 +164,7 @@ if (labelFontSizeInput) {
 }
 
 let sourceParsedGraph = null;
+let currentGraphInputKind = GRAPH_INPUT_KINDS.GENERIC;
 let currentDotText = "";
 let currentGraphStats = null;
 let currentDisplayComponentState = null;
@@ -173,7 +190,7 @@ let currentRenderToken = 0;
 let currentGraphSource = null;
 let currentNodeDetailIndex = null;
 let currentNodeDetailSource = "";
-let currentNodeDetailStatus = "点击图中的节点查看节点信息详情。";
+let currentNodeDetailStatus = "";
 let selectedNodeId = null;
 let nodeSearchRequestToken = 0;
 
@@ -298,6 +315,7 @@ function buildRenderKey(renderedDepth = currentRenderedLayerDepth) {
 function clearGraph({ preserveNodeDetails = false } = {}) {
   resetNodeSearch();
   sourceParsedGraph = null;
+  currentGraphInputKind = GRAPH_INPUT_KINDS.GENERIC;
   currentGraphStats = null;
   currentDisplayComponentState = null;
   currentDisplayGraph = null;
@@ -319,7 +337,7 @@ function clearGraph({ preserveNodeDetails = false } = {}) {
   if (!preserveNodeDetails) {
     currentNodeDetailIndex = null;
     currentNodeDetailSource = "";
-    currentNodeDetailStatus = "点击图中的节点查看节点信息详情。";
+    currentNodeDetailStatus = "";
   }
   selectedNodeId = null;
   tabStateStore.reset();
@@ -378,7 +396,16 @@ function updateMinComponentSizeInfo() {
 
 function updateSelectedNodeDetail(nodeId = selectedNodeId) {
   selectedNodeId = nodeId || null;
-  const detail = selectedNodeId ? getNodeDetail(currentNodeDetailIndex, selectedNodeId) : null;
+  const importedDetail = selectedNodeId
+    ? getNodeDetail(currentNodeDetailIndex, selectedNodeId)
+    : null;
+  const graphNode = selectedNodeId
+    ? sourceParsedGraph?.nodes.find((node) => node.id === selectedNodeId)
+    : null;
+  const graphSequenceDetail = buildSequenceNodeDetail(graphNode, currentGraphInputKind);
+  const detail = importedDetail?.type === "sequence"
+    ? importedDetail
+    : graphSequenceDetail || importedDetail;
   const hasNodeInfo = Boolean(currentNodeDetailIndex);
 
   updateNodeDetailPanel(
@@ -390,11 +417,10 @@ function updateSelectedNodeDetail(nodeId = selectedNodeId) {
     {
       nodeId: selectedNodeId,
       detail,
-      detailStatus: currentNodeDetailStatus,
-      emptyMessage: currentNodeDetailStatus || "点击图中的节点查看详情。",
+      emptyMessage: "点击图中的梯元或 Target 查看 ID 和序列。",
       missingMessage: hasNodeInfo
         ? `节点信息中没有找到 ID ${selectedNodeId}。`
-        : currentNodeDetailStatus,
+        : "暂无可显示的节点详情。",
     },
   );
 }
@@ -405,7 +431,7 @@ function refreshNodeDetailViews() {
   updateSelectedNodeDetail(selectedNodeId);
 }
 
-function resetNodeDetails(status = "点击“导入节点信息”查找同目录 CSV。") {
+function resetNodeDetails(status = "") {
   currentNodeDetailIndex = null;
   currentNodeDetailSource = "";
   currentNodeDetailStatus = status;
@@ -733,6 +759,7 @@ async function renderActiveGraph(statusPrefix = "") {
   renderGraphTabs();
 
   const { dot, engine } = serializeGraphToDot(currentRenderedSubgraph, {
+    graphInputKind: currentGraphInputKind,
     layoutMode: currentLayoutMode,
     nodeTextMode,
     labelFontSize,
@@ -761,6 +788,7 @@ async function renderActiveGraph(statusPrefix = "") {
     renderer.render({
       svgMarkup,
       parsed: currentRenderedSubgraph,
+      graphInputKind: currentGraphInputKind,
       nodeTextMode,
       labelFontSize,
     });
@@ -805,6 +833,7 @@ function renderGraph(statusPrefix = "") {
   resetNodeSearch();
   try {
     sourceParsedGraph = sanitizeParsedGraph(parseDot(currentDotText));
+    currentGraphInputKind = detectGraphInputKind(sourceParsedGraph);
     currentGraphStats = summarizeGraph(sourceParsedGraph);
     tabStateStore.reset();
     refineModeController?.clear();
@@ -820,6 +849,7 @@ function renderGraph(statusPrefix = "") {
     graphvizRenderClient.cancel("DOT 解析失败，已停止旧渲染任务。");
     renderer.clear();
     sourceParsedGraph = null;
+    currentGraphInputKind = GRAPH_INPUT_KINDS.GENERIC;
     currentGraphStats = null;
     currentDisplayComponentState = null;
     currentDisplayGraph = null;
@@ -905,9 +935,20 @@ fileInput.addEventListener("change", async (event) => {
     currentDotText = dotText;
     currentGraphSource = { kind: "local-file", sourceName: file.name };
     if (loadGenerationTracker.isCurrentNodeInfo(localLoad.nodeInfoToken)) {
-      resetNodeDetails(`已加载 ${file.name}；点击“导入节点信息”查找同名 CSV。`);
+      resetNodeDetails();
     }
     renderGraph(`已加载文件：${file.name}`);
+    const bundledNodeDetailCandidate = getBundledNodeDetailCandidate(file.name);
+    if (
+      bundledNodeDetailCandidate &&
+      loadGenerationTracker.isCurrentNodeInfo(localLoad.nodeInfoToken)
+    ) {
+      applyNodeDetailText(
+        bundledNodeDetailCandidate.text,
+        bundledNodeDetailCandidate.displayName,
+        "已自动导入节点信息",
+      );
+    }
   } catch (error) {
     if (!loadGenerationTracker.isCurrentGraph(localLoad.graphToken)) return;
     setStatus(`读取文件失败：${error.message}`, true);
@@ -1089,7 +1130,10 @@ window.addEventListener("resize", () => {
   }
 });
 
-window.addEventListener("pagehide", () => graphvizRenderClient.dispose());
+window.addEventListener("pagehide", () => {
+  networkHeightResizer.destroy();
+  graphvizRenderClient.dispose();
+});
 
 if (nodeSizeModeSelect) {
   for (const option of NODE_SIZE_MODE_OPTIONS) {

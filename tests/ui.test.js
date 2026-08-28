@@ -2,7 +2,11 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { renderGraphTabs, renderOmittedSingleTargets } from "../src/app/ui.js";
+import {
+  renderGraphTabs,
+  renderOmittedSingleTargets,
+  updateNodeDetailPanel,
+} from "../src/app/ui.js";
 
 function makeOmittedSummaryEls() {
   const summaryEl = document.createElement("p");
@@ -137,5 +141,30 @@ describe("target statistics UI", () => {
       "(1)24叶.135梯元",
     ]);
     expect(tabsEl.firstElementChild.classList.contains("active")).toBe(true);
+  });
+});
+
+describe("sequence node details UI", () => {
+  it("shows a selected node ID and its concrete sequence", () => {
+    const detailEls = {
+      nodeDetailTitle: document.createElement("h2"),
+      nodeDetailMeta: document.createElement("p"),
+      nodeDetailBody: document.createElement("p"),
+    };
+
+    updateNodeDetailPanel(detailEls, {
+      nodeId: "-1",
+      detail: {
+        type: "sequence",
+        id: "-1",
+        sequence: "土火气水",
+        sequenceLength: 4,
+      },
+    });
+
+    expect(detailEls.nodeDetailTitle.textContent).toBe("ID -1");
+    expect(detailEls.nodeDetailMeta.textContent).toBe("序列长度 4");
+    expect(detailEls.nodeDetailBody.textContent).toBe("土火气水");
+    expect(detailEls.nodeDetailBody.hidden).toBe(false);
   });
 });

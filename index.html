@@ -118,11 +118,11 @@
               aria-describedby="nodeSearchFeedback"
             />
             <button id="nodeSearchBtn" class="primary" type="submit">查找ID</button>
-            <span id="nodeSearchFeedback" class="node-search-feedback" role="status" aria-live="polite"></span>
           </form>
           <p id="omittedSingleTargetsSummary" class="omitted-target-summary" hidden>
             <strong id="omittedSingleTargetsText"></strong>
           </p>
+          <span id="nodeSearchFeedback" class="node-search-feedback" role="status" aria-live="polite"></span>
         </div>
         <p id="status" hidden></p>
         <div class="graph-workspace">
@@ -143,11 +143,26 @@
                 </div>
               </div>
             </div>
-            <div id="network"></div>
+            <div
+              id="network"
+              aria-label="图形工作区"
+            ></div>
+            <div
+              id="networkResizeHandle"
+              class="network-resize-handle"
+              role="separator"
+              aria-label="调整图形窗口高度"
+              aria-orientation="horizontal"
+              tabindex="0"
+              title="上下拖动调节高度；也可用键盘上下方向键微调"
+            >
+              <span class="network-resize-grip" aria-hidden="true"></span>
+              <span class="network-resize-hint" aria-hidden="true">上下拖动调节高度</span>
+            </div>
           </div>
           <aside class="node-detail-panel" aria-label="节点详情">
             <h2 id="nodeDetailTitle" class="node-detail-title">未选择节点</h2>
-            <p id="nodeDetailMeta" class="node-detail-meta">点击图中的节点查看节点信息详情。</p>
+            <p id="nodeDetailMeta" class="node-detail-meta">点击图中的梯元或 Target 查看 ID 和序列。</p>
             <p id="nodeDetailBody" class="node-detail-body" hidden></p>
             <div id="genePairExportPanel"></div>
           </aside>

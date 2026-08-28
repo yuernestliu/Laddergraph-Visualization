@@ -208,7 +208,6 @@ export function updateNodeDetailPanel(detailEls, options) {
   const {
     nodeId,
     detail,
-    detailStatus,
     emptyMessage,
     missingMessage,
   } = options;
@@ -217,7 +216,7 @@ export function updateNodeDetailPanel(detailEls, options) {
 
   if (!nodeId) {
     nodeDetailTitle.textContent = "未选择节点";
-    nodeDetailMeta.textContent = emptyMessage || detailStatus || "点击图中的节点查看节点信息详情。";
+    nodeDetailMeta.textContent = emptyMessage || "点击图中的节点查看 ID 与详情。";
     nodeDetailBody.textContent = "";
     nodeDetailBody.hidden = true;
     return;
@@ -226,9 +225,20 @@ export function updateNodeDetailPanel(detailEls, options) {
   nodeDetailTitle.textContent = `ID ${nodeId}`;
 
   if (!detail) {
-    nodeDetailMeta.textContent = missingMessage || detailStatus || "节点信息中没有找到这个 ID。";
+    nodeDetailMeta.textContent = missingMessage || "暂无可显示的节点详情。";
     nodeDetailBody.textContent = "";
     nodeDetailBody.hidden = true;
+    return;
+  }
+
+  if (detail.type === "sequence") {
+    const sequence = String(detail.sequence || "");
+    const sequenceLength = Number.isFinite(Number(detail.sequenceLength))
+      ? Number(detail.sequenceLength)
+      : Array.from(sequence).length;
+    nodeDetailMeta.textContent = `序列长度 ${sequenceLength}`;
+    nodeDetailBody.hidden = false;
+    nodeDetailBody.textContent = sequence;
     return;
   }
 

@@ -274,14 +274,14 @@ h2 {
   display: grid;
   grid-template-areas:
     "components search"
-    "omitted omitted";
+    "omitted feedback";
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 4px 14px;
   align-items: start;
   margin-bottom: 8px;
 }
 
-.graph-navigation:has(.omitted-target-summary[hidden]) {
+.graph-navigation:has(.omitted-target-summary[hidden]):has(.node-search-feedback:empty) {
   row-gap: 0;
 }
 
@@ -299,7 +299,7 @@ h2 {
   grid-area: search;
   display: grid;
   grid-template-columns: 76px auto;
-  gap: 5px 6px;
+  gap: 6px;
   align-items: center;
   justify-content: end;
 }
@@ -318,10 +318,12 @@ h2 {
 }
 
 .node-search-feedback {
-  grid-column: 1 / -1;
+  grid-area: feedback;
+  align-self: start;
+  justify-self: end;
   color: var(--muted);
   font-size: 11px;
-  line-height: 1.35;
+  line-height: 1.45;
   text-align: right;
   white-space: nowrap;
 }
@@ -485,7 +487,10 @@ button.primary {
 }
 
 #network {
+  width: 100%;
+  max-width: 100%;
   height: min(84vh, 980px);
+  min-height: 320px;
   background: white;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -494,6 +499,49 @@ button.primary {
   cursor: grab;
   user-select: none;
   touch-action: none;
+}
+
+.network-resize-handle {
+  height: 14px;
+  margin: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--muted);
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.network-resize-grip {
+  width: 48px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(11, 114, 133, 0.42);
+  box-shadow: 0 0 0 1px rgba(11, 114, 133, 0.08);
+  transition:
+    width 120ms ease,
+    background 120ms ease;
+}
+
+.network-resize-hint {
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0.72;
+}
+
+.network-resize-handle:hover .network-resize-grip,
+.network-resize-handle.is-resizing .network-resize-grip,
+.network-resize-handle:focus-visible .network-resize-grip {
+  width: 72px;
+  background: rgba(11, 114, 133, 0.78);
+}
+
+.network-resize-handle:focus-visible {
+  outline: 2px solid rgba(11, 114, 133, 0.28);
+  outline-offset: -3px;
+  border-radius: 8px;
 }
 
 #network.is-panning {
@@ -550,13 +598,14 @@ button.primary {
 .graph-workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
+  gap: 4px;
   align-items: stretch;
 }
 
 .node-detail-panel {
-  min-height: 0;
-  max-height: 320px;
+  height: 200px;
+  min-height: 200px;
+  max-height: 200px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -709,6 +758,7 @@ button.primary {
 
 .omitted-target-summary {
   grid-area: omitted;
+  min-width: 0;
   margin: 0;
   color: #5f3d07;
   font-size: 12px;

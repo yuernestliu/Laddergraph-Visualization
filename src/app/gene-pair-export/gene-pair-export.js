@@ -99,10 +99,6 @@ function makePanel(documentRef) {
   panel.className = "gene-pair-export";
   panel.hidden = true;
 
-  const title = documentRef.createElement("h3");
-  title.className = "gene-pair-export-title";
-  title.textContent = "节点基因导出";
-
   const meta = documentRef.createElement("p");
   meta.className = "gene-pair-export-meta";
   meta.textContent = "点击一个梯元即可导出；按 Ctrl 点击另一个梯元可比较两者。";
@@ -123,7 +119,7 @@ function makePanel(documentRef) {
   pairButton.disabled = true;
 
   actions.append(singleButton, pairButton);
-  panel.append(title, meta, actions);
+  panel.append(meta, actions);
   return { panel, meta, singleButton, pairButton };
 }
 
@@ -174,7 +170,16 @@ export function createGenePairExportController(options = {}) {
   function updatePanel() {
     const primaryData = getPrimaryData();
     const pairData = getPairData();
-    panel.hidden = !firstNodeId;
+    const hasPrimaryExportData = (primaryData?.genes.length || 0) > 0;
+    const hasPairExportData = Boolean(
+      pairData && (
+        pairData.firstGenes.length > 0 ||
+        pairData.secondGenes.length > 0 ||
+        pairData.intersectionGenes.length > 0 ||
+        pairData.unionGenes.length > 0
+      ),
+    );
+    panel.hidden = !firstNodeId || (!hasPrimaryExportData && !hasPairExportData);
 
     if (!firstNodeId) {
       meta.textContent = "点击一个梯元即可导出；按 Ctrl 点击另一个梯元可比较两者。";
